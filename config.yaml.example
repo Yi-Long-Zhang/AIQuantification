@@ -1,0 +1,39 @@
+# ============================================
+# AIQuantification 配置文件
+# 复制此文件为 config.yaml 并填入实际值
+# cp config.yaml.example config.yaml
+# ============================================
+
+llm:
+  # 主 LLM 提供商: deepseek, openai, qwen, gemini
+  provider: deepseek
+  model: deepseek-chat
+  api_key: "sk-your-key-here"
+
+  # API 地址（可选，默认使用官方地址）
+  # api_base: "https://api.deepseek.com"
+
+  # 温度参数（0.0 ~ 1.0）
+  temperature: 0.3
+
+  # 最大 token 数
+  max_tokens: 4096
+
+  # 备用 LLM（主 LLM 不可用时自动切换）
+  # fallback:
+  #   provider: openai
+  #   model: gpt-4o-mini
+  #   api_key: "sk-xxx"
+
+memory:
+  # SQLite 数据库路径（支持 ~ 和相对路径）
+  db_path: "~/.aiquantification/memory.db"
+
+constitution:
+  # 智能体宪法文件路径
+  path: "AGENT_CONSTITUTION.md"
+
+server:
+  host: "0.0.0.0"
+  port: 8000
+  reload: true

@@ -1,304 +1,128 @@
-# Agent 核心设计
+# Agent 设计
 
-> ReAct 循环、工具注册机制、LLM 多提供商抽象、记忆系统。
+## ReAct 循环
 
----
-
-## 一、ReAct 循环
-
-Agent 的核心是 **ReAct (Reasoning + Acting)** 模式。每次请求经历以下循环：
+Agent 使用 ReAct（Reasoning + Acting）模式，循环执行：
 
 ```
-Input: user query
-          │
-          ▼
-     ┌──────────┐
-     │  LLM     │◄──────── messages[system, history, user]
-     │ 推理     │
-     └────┬─────┘
-          │
-     ┌────┴─────┐
-     │ 有 tool  │  YES ──→ 解析 tool_call → 执行工具
-     │_calls?   │                    │
-     └────┬─────┘                    ▼
-          │ NO              结果注入 messages
-          │                    │
-          ▼                    ▼
-     ┌──────────┐          ┌──────────┐
-     │ 返回答案  │          │ LLM 再   │
-     │ 给用户    │          │ 次推理    │
-     └──────────┘          └──────────┘
-                               │
-                          max_iter 超限?
-                               │
-                          ┌────┴─────┐
-                          │  YES     │
-                          │ 超限返回 │
-                          └──────────┘
+用户输入 → LLM 推理 → 需要工具？→ 是 → 执行工具 → 结果返回 LLM → 重复
+                   ↓
+                   否 → 返回最终答案
 ```
 
-### 关键实现 (agent/core.py)
+**最大迭代**：10 次（防止无限循环）
+
+核心代码：`agent/core.py` → `QuantAgent.chat()`
+
+## System Prompt
+
+Agent 的 system prompt 由三部分拼接：
+
+1. **基础角色**：你是一个专业的量化交易分析师...
+2. **可用工具说明**：列出所有工具名称和用途
+3. **记忆注入**：最近 10 条历史对话
+
+## LLM 客户端
+
+`agent/llm_client.py` 支持 4 家 LLM，全部走 OpenAI 兼容 API：
+
+| Provider | 默认模型 | 配置字段 |
+|----------|---------|---------|
+| deepseek | deepseek-chat | `LLM_API_KEY` |
+| openai | gpt-4o | `LLM_API_KEY` + `LLM_BASE_URL` |
+| qwen | qwen-plus | `LLM_API_KEY` |
+| gemini | gemini-2.0-flash | `LLM_API_KEY` |
+
+**Fallback 机制**：DeepSeek → OpenAI → Qwen → Gemini
 
 ```python
-async def _run_loop(self, messages, session_id, max_iterations=10):
-    for iteration in range(max_iterations):
-        result = await self.llm.chat(messages, tools=self.tools)
-
-        # 检查是否有工具调用
-        if not message.get("tool_calls"):
-            return message.get("content")
-
-        # 遍历所有工具调用
-        for tc in tool_calls:
-            func_name = tc["function"]["name"]
-            args = json.loads(tc["function"]["arguments"])
-            tool_result = await execute_tool(func_name, **args)
-            messages.append({"role": "tool", ...})
-
-    return "已达最大迭代次数..."
+# 调用方式
+from agent.llm_client import LLMClient
+client = LLMClient(provider="deepseek", api_key="sk-xxx")
+response = await client.chat(messages=[{"role": "user", "content": "分析 AAPL"}])
 ```
 
-### 设计要点
+## 工具系统
 
-- **最大迭代 10 次**：防止无限循环耗尽 token 和 API 费用。
-- **Tool result 截断 50000 字符**：避免上下文窗口溢出。
-- **异常隔离**：单个工具失败不影响整个循环。
-- **每次迭代保存到 Memory**：失败时可恢复会话上下文。
+### 注册
 
----
-
-## 二、工具注册机制
-
-### 2.1 @tool 装饰器
+所有工具在 `agent/tools/` 下定义，用 `@tool` 装饰器注册：
 
 ```python
+from agent.tools.registry import tool
+
 @tool(
-    name="calculate_indicators",
-    description="计算技术指标",
-    parameters={
-        "symbol": {"type": "string", "description": "股票代码"},
-        "market": {"type": "string", "description": "市场", "default": "us_stock"},
-        "indicators": {"type": "array", "items": {"type": "string"}},
-    },
+    name="get_stock_quote",
+    description="获取股票实时报价",
+    parameters={"symbol": {"description": "股票代码"}, "market": {"description": "市场: us_stock/cn_stock"}}
 )
-async def calculate_indicators(symbol, market="us_stock", indicators=None):
+async def get_stock_quote(symbol: str, market: str = "us_stock") -> dict:
     ...
 ```
 
-### 2.2 自动生成 Tool Definition
+### 注册中心
 
-装饰器内部通过 `inspect.signature` 反射函数参数：
-
-| 函数参数 | → | Tool Definition |
-|---------|---|-----------------|
-| `symbol: str` | → | `{type: "string", required: true}` |
-| `market: str = "us_stock"` | → | `{type: "string", default: "us_stock"}` |
-| `indicators: list` | → | `{type: "array", items: {type: "string"}}` |
-
-生成格式与 OpenAI function calling 完全兼容：
-
-```json
-{
-  "type": "function",
-  "function": {
-    "name": "calculate_indicators",
-    "description": "计算技术指标",
-    "parameters": {
-      "type": "object",
-      "properties": {
-        "symbol": {"type": "string", "description": "股票代码"},
-        "market": {"type": "string", "description": "市场"},
-        "indicators": {"type": "array", "items": {"type": "string"}}
-      },
-      "required": ["symbol"]
-    }
-  }
-}
-```
-
-### 2.3 注册中心 (agent/tools/registry.py)
+`agent/tools/registry.py` 维护全局字典 `_TOOL_REGISTRY`：
 
 ```python
 _TOOL_REGISTRY = {
-    "get_klines": {"func": <async function>, "definition": {...}},
-    "calculate_indicators": {"func": <async function>, "definition": {...}},
-    "run_backtest": {"func": <async function>, "definition": {...}},
+    "get_stock_quote": {"func": <function>, "definition": <tool_def>},
     ...
 }
 ```
 
-提供三个全局函数：
+### 导入触发
 
-| 函数 | 用途 |
+`agent/tools/__init__.py` 导入所有工具模块 → 触发 `@tool` 装饰器执行 → 注册到字典。
+
+**关键**：必须在 `__init__.py` 中 import，否则工具不会被注册。
+
+### 执行
+
+Agent 调用工具时：
+
+```python
+# core.py 中
+result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
+```
+
+### 工具列表（共 13 个）
+
+| 文件 | 工具 | 用途 |
+|------|------|------|
+| market_data.py | `get_stock_quote` | 实时报价（yfinance） |
+| market_data.py | `get_klines` | 美股 K 线（yfinance） |
+| market_data.py | `get_cn_klines` | A 股 K 线（akshare） |
+| market_data.py | `get_market_overview` | 市场总览 |
+| technical.py | `calculate_indicators` | 技术指标（pandas-ta） |
+| backtest.py | `run_backtest` | 回测策略 |
+| backtest.py | `compare_strategies` | 策略对比 |
+| risk.py | `calculate_position_size` | 仓位计算（Kelly） |
+| risk.py | `assess_portfolio_risk` | 组合风险（VaR/CVaR） |
+| news.py | `get_stock_news` | 股票新闻 |
+| news.py | `analyze_sentiment` | 情绪分析（Fear & Greed/VIX） |
+| constitution.py | `check_constitution` | 合规检查 |
+
+## 记忆系统
+
+`agent/memory.py` 使用 SQLite 存储：
+
+- **sessions** 表：会话元数据
+- **messages** 表：对话历史
+- **trades** 表：交易记录
+- **knowledge** 表：知识库
+
+每次对话自动存储，下次打开同一 session 可恢复上下文。
+
+## 策略系统
+
+`agent/strategies/registry.py` 注册 4 个内置策略：
+
+| 策略 | 逻辑 |
 |------|------|
-| `get_tool_definitions()` | 返回所有 tool definition（给 LLM） |
-| `execute_tool(name, **kwargs)` | 按名称执行工具 |
-| `get_tool_names()` | 返回工具名称列表 |
+| sma_cross | SMA 5/20 金叉死叉 |
+| macd | MACD 信号线交叉 |
+| rsi | RSI 超买超卖 |
+| bollinger | 布林带突破 |
 
-### 2.4 添加新工具的步骤
-
-1. 在 `agent/tools/` 下新建 `.py` 文件
-2. 定义 `async def` 函数，使用 `@tool` 装饰器
-3. 重启服务即可（自动注册）
-
-```python
-from .registry import tool
-
-@tool(
-    name="my_new_tool",
-    description="我的新工具",
-    parameters={
-        "param1": {"type": "string", "description": "参数1"},
-    },
-)
-async def my_new_tool(param1: str, param2: int = 0):
-    # 工具逻辑
-    return {"result": "ok"}
-```
-
----
-
-## 三、LLM 多提供商抽象
-
-### 3.1 提供商配置
-
-```yaml
-# config.yaml
-llm:
-  provider: deepseek
-  model: deepseek-chat
-  api_key: "sk-xxx"
-  temperature: 0.3
-  max_tokens: 4096
-  # 备用（可选）
-  fallback:
-    provider: openai
-    model: gpt-4o-mini
-    api_key: "sk-xxx"
-```
-
-### 3.2 提供商定义
-
-| 提供商 | 默认 API 地址 | 可用模型 |
-|--------|-------------|---------|
-| deepseek | https://api.deepseek.com | deepseek-chat, deepseek-reasoner |
-| openai | https://api.openai.com/v1 | gpt-4o, gpt-4o-mini, o3-mini |
-| qwen | https://dashscope.aliyuncs.com/compatible-mode/v1 | qwen-plus, qwen-max, qwen-turbo |
-| gemini | https://generativelanguage.googleapis.com/v1beta/openai | gemini-2.0-flash, gemini-2.5-pro |
-
-### 3.3 LLMClient 接口
-
-```python
-class LLMClient:
-    async def chat(self, messages, tools=None, temperature=None, max_tokens=None) -> dict
-        # → {"choices": [{"message": {"content": "...", "tool_calls": [...]}}]}
-
-    async def chat_stream(self, messages, tools=None, temperature=None, max_tokens=None)
-        # → 逐 chunk yield {"choices": [{"delta": {"content": "..."}}]}
-```
-
-### 3.4 Fallback 机制
-
-当主 LLM 调用失败（网络错误、限流、API 错误）：
-
-```python
-try:
-    resp = await client.post("/chat/completions", json=body)
-    resp.raise_for_status()
-except Exception:
-    if self.fallback_client:
-        return await self.fallback_client.chat(messages, tools)
-    raise
-```
-
----
-
-## 四、系统提示词与宪法注入
-
-系统提示词在每次请求时动态构建：
-
-```python
-SYSTEM_PROMPT = f"""
-您是一个量化交易分析 AI 助手。您必须遵守以下宪法：
-
-{_load_constitution()}  ← 从 AGENT_CONSTITUTION.md 读取
-
-您的可用工具：
-- ...
-
-决策流程：
-1. 至少覆盖 3 个分析维度搜集数据
-2. 多维度综合加权
-3. 分配信号等级 (STRONG_BUY / BUY / HOLD / SELL / STRONG_SELL)
-4. 分配置信度 (0.0~1.0)
-5. 按风控规则计算仓位
-6. 始终包含止损和止盈
-"""
-```
-
-宪法文件 (`AGENT_CONSTITUTION.md`) 共 7 章：
-
-| 章 | 核心约束 |
-|----|---------|
-| 风控原则 | 单笔亏损 ≤2%、仓位 ≤30%、三级回撤熔断 |
-| 数据原则 | 禁止前瞻偏差、数据源优先级、缓存时效 |
-| 决策框架 | 三维度分析、五级信号、置信度评分 |
-| 伦理准则 | 透明度、合规性、隐私保护 |
-
----
-
-## 五、记忆系统
-
-### 5.1 表结构
-
-```sql
-sessions (session_id, created_at, updated_at)
-messages (id, session_id, role, content, metadata, created_at)
-trades   (id, session_id, symbol, direction, confidence, pnl, ...)
-knowledge(id, market, symbol, key, value, created_at)
-```
-
-### 5.2 API
-
-```python
-memory = AgentMemory(db_path="~/.aiquantification/memory.db")
-
-# 会话管理
-memory.create_session("uuid-xxx")
-memory.get_history("uuid-xxx", limit=50)
-
-# 消息存储
-memory.save_message("uuid-xxx", "user", "分析 AAPL")
-memory.save_message("uuid-xxx", "assistant", "结果...", metadata={"tool": "get_klines"})
-
-# 交易记录
-memory.save_trade("uuid-xxx", "AAPL", "BUY", 0.8, 150.0, "MACD 金叉")
-
-# 知识存储
-memory.save_knowledge("us_stock", "AAPL", "pe_ratio", "28.5")
-memory.get_knowledge(market="us_stock", symbol="AAPL")
-```
-
-### 5.3 会话恢复
-
-每次请求通过 `session_id` 恢复上下文，最多加载最近 20 条消息：
-
-```python
-def _convert_history(self, history):
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    for msg in history[-20:]:  # 只保留最近 20 条
-        messages.append({"role": msg["role"], "content": msg["content"]})
-    return messages
-```
-
----
-
-## 六、错误处理策略
-
-| 异常类型 | 处理方式 |
-|---------|---------|
-| LLM API 错误 (4xx) | 仅报告错误，不自动重试 |
-| LLM 网络超时 | 自动切换到 fallback provider |
-| 工具执行异常 | 返回 `{"error": "..."}`，注入循环继续 |
-| JSON 解析失败 | 返回 `{"error": "parse error"}` |
-| 数据源不可用 | 报告具体缺失，建议备用数据源 |
+所有策略继承自 `Strategy` ABC（`agent/strategies/base.py`），必须实现 `generate_signals(df)` 方法。

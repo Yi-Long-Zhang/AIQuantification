@@ -8,18 +8,7 @@ from .memory import AgentMemory
 from .tools.registry import get_tool_definitions, execute_tool
 
 
-def _load_constitution() -> str:
-    path = settings.constitution_path
-    try:
-        with open(path) as f:
-            return f.read()
-    except Exception:
-        return "Constitution file not found."
-
-
-SYSTEM_PROMPT = f"""You are an expert quantitative trading analyst AI assistant. You are bound by the following constitution — you must obey all rules in it.
-
-{_load_constitution()}
+SYSTEM_PROMPT = """You are an expert quantitative trading analyst AI assistant.
 
 Your capabilities:
 - Fetch real-time and historical market data (US/CN/HK stocks, crypto)

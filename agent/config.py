@@ -97,10 +97,6 @@ class Settings:
         return os.path.expanduser(self._raw.get("memory", {}).get("db_path", "~/.aiquantification/memory.db"))
 
     @property
-    def constitution_path(self) -> str:
-        return os.path.expanduser(self._raw.get("constitution", {}).get("path", "AGENT_CONSTITUTION.md"))
-
-    @property
     def server_host(self) -> str:
         return self._raw.get("server", {}).get("host", "0.0.0.0")
 

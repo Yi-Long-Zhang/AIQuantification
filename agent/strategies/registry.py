@@ -67,11 +67,78 @@ class BollingerStrategy(Strategy):
         return signals
 
 
+class IchimokuStrategy(Strategy):
+    name = "ichimoku"
+    description = "一目均衡表策略（转换线/基准线/云带综合判断）"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        high_9 = df["High"].rolling(9).max()
+        low_9 = df["Low"].rolling(9).min()
+        tenkan = (high_9 + low_9) / 2
+
+        high_26 = df["High"].rolling(26).max()
+        low_26 = df["Low"].rolling(26).min()
+        kijun = (high_26 + low_26) / 2
+
+        senkou_a = ((tenkan + kijun) / 2).shift(26)
+        high_52 = df["High"].rolling(52).max()
+        low_52 = df["Low"].rolling(52).min()
+        senkou_b = ((high_52 + low_52) / 2).shift(26)
+
+        cloud_top = pd.concat([senkou_a, senkou_b], axis=1).max(axis=1)
+        cloud_bottom = pd.concat([senkou_a, senkou_b], axis=1).min(axis=1)
+
+        signals = pd.Series(0, index=df.index)
+        signals[(tenkan > kijun) & (df["Close"] > cloud_top)] = 1
+        signals[(tenkan < kijun) & (df["Close"] < cloud_bottom)] = -1
+        return signals
+
+
+class SMCStrategy(Strategy):
+    name = "smc"
+    description = "Smart Money Concepts 策略（订单块/流动性扫荡）"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        h_20 = df["High"].rolling(20).max()
+        l_20 = df["Low"].rolling(20).min()
+
+        signals = pd.Series(0, index=df.index)
+        signals[df["Close"] > h_20.shift(1)] = 1
+        signals[df["Close"] < l_20.shift(1)] = -1
+        return signals
+
+
+class MultiFactorStrategy(Strategy):
+    name = "multi_factor"
+    description = "多因子评分策略（动量+波动率+成交量综合打分）"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        ret_20 = df["Close"].pct_change(20)
+        vol_20 = df["Close"].pct_change().rolling(20).std()
+
+        ret_score = ret_20.rank(pct=True)
+        vol_score = (-vol_20).rank(pct=True)
+
+        avg_vol = df["Volume"].rolling(20).mean()
+        vol_ratio = df["Volume"] / avg_vol.replace(0, np.nan)
+        vol_ratio_score = vol_ratio.rank(pct=True)
+
+        composite = 0.4 * ret_score + 0.3 * vol_score + 0.3 * vol_ratio_score
+
+        signals = pd.Series(0, index=df.index)
+        signals[composite > 0.6] = 1
+        signals[composite < 0.4] = -1
+        return signals
+
+
 _STRATEGIES: dict[str, type[Strategy]] = {
     "sma_cross": SMACrossStrategy,
     "macd": MACDStrategy,
     "rsi": RSIStrategy,
     "bollinger": BollingerStrategy,
+    "ichimoku": IchimokuStrategy,
+    "smc": SMCStrategy,
+    "multi_factor": MultiFactorStrategy,
 }
 
 

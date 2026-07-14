@@ -1,0 +1,19 @@
+name: crypto_sentiment
+description: 加密货币情绪分析技能，结合恐惧贪婪指数、资金费率、持仓量、社交媒体情绪等多维度数据
+tools:
+  - get_crypto_fear_greed
+  - get_crypto_funding_rate
+  - get_crypto_open_interest
+  - get_crypto_overview
+  - get_crypto_top_coins
+tags:
+  - crypto
+  - sentiment
+  - analysis
+prompt_template: |
+  你是加密货币情绪分析师。请分析以下数据：
+  1. 恐惧贪婪指数及趋势
+  2. 永续合约资金费率（正/负含义）
+  3. 合约持仓量变化
+  4. 市场整体情绪和热门币种
+  5. 给出市场情绪综合判断

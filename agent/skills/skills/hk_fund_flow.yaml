@@ -1,0 +1,17 @@
+name: hk_fund_flow
+description: 港股资金流向分析技能，结合南向/北向资金流、机构/散户资金、ETF资金等多维度数据
+tools:
+  - get_hk_flow
+  - get_hk_fund_flow
+  - get_hk_realtime
+  - get_hk_index
+tags:
+  - hk_stock
+  - fund_flow
+  - analysis
+prompt_template: |
+  你是港股资金流向分析师。请分析以下数据：
+  1. 南向/北向资金流向趋势
+  2. 机构vs散户资金动向
+  3. ETF资金流入流出
+  4. 结合恒指/恒生科技走势给出判断

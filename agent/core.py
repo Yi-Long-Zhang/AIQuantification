@@ -8,6 +8,7 @@ from .config import settings
 from .llm_client import LLMClient
 from .memory import AsyncAgentMemory
 from .tools.registry import get_tool_definitions, execute_tool
+from .skills import load_all_skills, get_skill_registry
 
 
 SYSTEM_PROMPT = """You are an expert quantitative trading analyst AI assistant.
@@ -19,6 +20,7 @@ Your capabilities:
 - Calculate position sizes and assess portfolio risk
 - Get market news and sentiment analysis
 - Calculate quant factors (momentum, volatility, etc.)
+- Use specialized analysis skills for comprehensive insights
 
 Decision-making process:
 1. First gather data using tools to cover at least 3 analysis dimensions
@@ -47,7 +49,28 @@ class QuantAgent:
     ):
         self.llm = LLMClient(provider=llm_provider, model=llm_model)
         self.memory = AsyncAgentMemory(db_path=db_path or settings.memory_db_path)
-        self.tools = get_tool_definitions()
+        load_all_skills()
+        self.tools = get_tool_definitions() + self._get_skill_definitions()
+
+    def _get_skill_definitions(self) -> list[dict[str, Any]]:
+        registry = get_skill_registry()
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": f"skill_{skill_dict['name']}",
+                    "description": f"[Skill] {skill_dict['description']}",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "Analysis request for this skill"},
+                        },
+                        "required": ["query"],
+                    },
+                },
+            }
+            for skill_dict in registry.list_all()
+        ]
 
     def _convert_history(self, history: list[dict]) -> list[dict[str, Any]]:
         messages = [{"role": "system", "content": SYSTEM_PROMPT}]
@@ -57,6 +80,30 @@ class QuantAgent:
             if role in ("user", "assistant", "system"):
                 messages.append({"role": role, "content": content})
         return messages
+
+    async def _execute_skill(self, skill_name: str, args: dict, session_id: str) -> str:
+        registry = get_skill_registry()
+        skill = registry.get(skill_name)
+        if not skill:
+            return json.dumps({"error": f"Skill '{skill_name}' not found"})
+
+        query = args.get("query", "")
+        skill_prompt = skill.prompt_template + "\n\nUser request: " + query
+
+        tool_results = {}
+        for tool_name in skill.tools:
+            try:
+                result = await execute_tool(tool_name)
+                tool_results[tool_name] = result
+            except Exception as e:
+                tool_results[tool_name] = {"error": str(e)}
+
+        messages = [
+            {"role": "system", "content": skill_prompt},
+            {"role": "user", "content": f"Analyze based on this data:\n{json.dumps(tool_results, ensure_ascii=False, default=str)[:50000]}"},
+        ]
+        result = await self.llm.chat(messages)
+        return result.get("choices", [{}])[0].get("message", {}).get("content", "")
 
     async def chat(self, query: str, session_id: str) -> str:
         await self.memory.create_session(session_id)
@@ -91,8 +138,12 @@ class QuantAgent:
                     args = {}
 
                 try:
-                    tool_result = await execute_tool(func_name, **args)
-                    result_str = json.dumps(tool_result, ensure_ascii=False, default=str)
+                    if func_name.startswith("skill_"):
+                        skill_name = func_name[6:]
+                        result_str = await self._execute_skill(skill_name, args, session_id)
+                    else:
+                        tool_result = await execute_tool(func_name, **args)
+                        result_str = json.dumps(tool_result, ensure_ascii=False, default=str)
                 except Exception as e:
                     result_str = json.dumps({"error": str(e)})
 
@@ -160,8 +211,12 @@ class QuantAgent:
                 yield f"\n\n🔧 调用工具: {func_name}\n"
 
                 try:
-                    tool_result = await execute_tool(func_name, **args)
-                    result_str = json.dumps(tool_result, ensure_ascii=False, default=str)
+                    if func_name.startswith("skill_"):
+                        skill_name = func_name[6:]
+                        result_str = await self._execute_skill(skill_name, args, session_id)
+                    else:
+                        tool_result = await execute_tool(func_name, **args)
+                        result_str = json.dumps(tool_result, ensure_ascii=False, default=str)
                 except Exception as e:
                     result_str = json.dumps({"error": str(e)})
 

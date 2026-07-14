@@ -89,6 +89,7 @@ def test_run_backtest_logic_with_slippage():
 
 def test_validate_ohlcv():
     df = _create_test_df(100)
+    df.columns = ["Date", "open", "high", "low", "close", "volume"]
     df.loc[5, "high"] = df.loc[5, "low"] - 1
     validated = _validate_ohlcv(df)
     assert len(validated) == len(df) - 1

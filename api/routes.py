@@ -82,7 +82,7 @@ async def run_backtest(req: BacktestRequest):
                 strategy_name=req.strategy_name,
                 symbol=symbol,
                 total_return=result.get("total_return_pct", 0),
-                annualized_return=result.get("total_return_pct", 0),
+                annualized_return=result.get("annualized_return_pct", 0),
                 sharpe_ratio=result.get("sharpe_ratio", 0),
                 max_drawdown=result.get("max_drawdown_pct", 0),
                 total_trades=result.get("total_trades", 0),

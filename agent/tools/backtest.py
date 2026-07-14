@@ -88,8 +88,14 @@ def _run_backtest_logic(
     wins = sum(1 for t in sell_trades if t.get("pnl_pct", 0) > 0)
     win_rate = round(wins / max(len(sell_trades), 1), 2)
 
+    # 计算年化收益率
+    trading_days = len(df)
+    years = trading_days / 252 if trading_days > 0 else 1
+    annualized_return = ((capital / initial_capital) ** (1 / years) - 1) * 100 if years > 0 else 0
+
     return {
         "total_return_pct": round(total_return, 2),
+        "annualized_return_pct": round(annualized_return, 2),
         "sharpe_ratio": sharpe,
         "max_drawdown_pct": max_dd,
         "total_trades": len(trades),
@@ -150,9 +156,9 @@ def _generate_signals(df: pd.DataFrame, strategy: str) -> pd.Series:
         signals[(tenkan < kijun) & (df["Close"] < cloud_bottom)] = -1
 
     elif strategy == "smc":
+        df = df.copy()
         df["h_20"] = df["High"].rolling(20).max()
         df["l_20"] = df["Low"].rolling(20).min()
-        df["mid"] = (df["h_20"] + df["l_20"]) / 2
         signals[(df["Close"] > df["h_20"].shift(1))] = 1
         signals[(df["Close"] < df["l_20"].shift(1))] = -1
 
@@ -171,21 +177,11 @@ def _generate_signals(df: pd.DataFrame, strategy: str) -> pd.Series:
     return signals
 
 
-def _fetch_and_prepare_df(symbol: str, market: str, start_date: str, end_date: str) -> pd.DataFrame | None:
+async def _fetch_and_prepare_df(symbol: str, market: str, start_date: str, end_date: str) -> pd.DataFrame | None:
     """获取数据并预处理"""
-    import asyncio
     from .market_data import get_klines
 
-    try:
-        klines = asyncio.get_event_loop().run_until_complete(
-            get_klines(symbol, market, interval="1d", period="2y")
-        )
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        klines = loop.run_until_complete(
-            get_klines(symbol, market, interval="1d", period="2y")
-        )
-        loop.close()
+    klines = await get_klines(symbol, market, interval="1d", period="2y")
 
     if not klines:
         return None
@@ -237,7 +233,7 @@ async def run_backtest(
     slippage_pct: float = 0.1,
     fee_rate: float = 0.1,
 ) -> dict:
-    df = _fetch_and_prepare_df(symbol, market, start_date, end_date)
+    df = await _fetch_and_prepare_df(symbol, market, start_date, end_date)
     if df is None:
         return {"error": "Insufficient data (need >= 60 rows)"}
 
@@ -297,7 +293,7 @@ async def monte_carlo_test(
     strategy: str = "sma_cross",
     n_simulations: int = 1000,
 ) -> dict:
-    df = _fetch_and_prepare_df(symbol, market, "", "")
+    df = await _fetch_and_prepare_df(symbol, market, "", "")
     if df is None:
         return {"error": "Insufficient data"}
 
@@ -346,7 +342,7 @@ async def walk_forward_test(
     train_days: int = 252,
     test_days: int = 63,
 ) -> dict:
-    df = _fetch_and_prepare_df(symbol, market, "", "")
+    df = await _fetch_and_prepare_df(symbol, market, "", "")
     if df is None:
         return {"error": "Insufficient data"}
 

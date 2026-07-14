@@ -1,8 +1,26 @@
 import logging
+from datetime import datetime, timedelta
 
 import pandas as pd
 
 from .registry import tool
+
+
+def _get_start_date(period: str) -> str:
+    """根据 period 动态计算开始日期"""
+    now = datetime.now()
+    period_map = {
+        "1mo": timedelta(days=30),
+        "3mo": timedelta(days=90),
+        "6mo": timedelta(days=180),
+        "1y": timedelta(days=365),
+        "2y": timedelta(days=730),
+        "5y": timedelta(days=1825),
+        "max": timedelta(days=3650),
+    }
+    delta = period_map.get(period, timedelta(days=365))
+    start = now - delta
+    return start.strftime("%Y%m%d")
 
 logger = logging.getLogger(__name__)
 
@@ -117,9 +135,7 @@ async def _akshare_cn_klines(symbol: str, interval: str, period: str) -> list[di
         freq_map = {"daily": "daily", "1d": "daily", "weekly": "weekly", "1wk": "weekly",
                      "monthly": "monthly", "1mo": "monthly"}
         freq = freq_map.get(interval, "daily")
-        start_map = {"1mo": "20260601", "3mo": "20260401", "6mo": "20260101",
-                      "1y": "20250701", "2y": "20240701", "5y": "20210701", "max": "20100101"}
-        start = start_map.get(period, "20250701")
+        start = _get_start_date(period)
         df = ak.stock_zh_a_hist(symbol=symbol, period=freq, start_date=start, adjust="qfq")
         if df.empty:
             return None
@@ -141,9 +157,7 @@ async def _akshare_hk_klines(symbol: str, interval: str, period: str) -> list[di
         freq_map = {"daily": "daily", "1d": "daily", "weekly": "weekly", "1wk": "weekly",
                      "monthly": "monthly", "1mo": "monthly"}
         freq = freq_map.get(interval, "daily")
-        start_map = {"1mo": "20260601", "3mo": "20260401", "6mo": "20260101",
-                      "1y": "20250701", "2y": "20240701", "5y": "20210701", "max": "20100101"}
-        start = start_map.get(period, "20250701")
+        start = _get_start_date(period)
         df = ak.stock_hk_hist(symbol=code, period=freq, start_date=start, adjust="qfq")
         if df.empty:
             return None
@@ -525,12 +539,6 @@ async def get_crypto_overview() -> dict:
         from pycoingecko import CoinGeckoAPI
         cg = CoinGeckoAPI()
         global_data = cg.get_global()
-        fg = cg.get恐惧与贪婪指数() if hasattr(cg, 'get_恐惧与贪婪指数') else None
-        try:
-            fg_data = cg.get_global()  
-            fg = None
-        except Exception:
-            fg = None
         top_coins = cg.get_coins_markets(vs_currency="usd", per_page=10, order="market_cap_desc")
         result = {
             "total_market_cap_usd": global_data.get("total_market_cap", {}).get("usd"),

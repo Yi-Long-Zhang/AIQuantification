@@ -64,6 +64,45 @@ class AsyncAgentMemory:
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
             CREATE INDEX IF NOT EXISTS idx_trades_session ON trades(session_id);
         """)
+        try:
+            await conn.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+                    content, role, session_id, created_at,
+                    content=messages, content_rowid=id
+                )
+            """)
+            await conn.execute("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
+                    key, value, market, symbol,
+                    content=knowledge, content_rowid=id
+                )
+            """)
+            await conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+                    INSERT INTO messages_fts(rowid, content, role, session_id, created_at)
+                    VALUES (new.id, new.content, new.role, new.session_id, new.created_at);
+                END
+            """)
+            await conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content, role, session_id, created_at)
+                    VALUES ('delete', old.id, old.content, old.role, old.session_id, old.created_at);
+                END
+            """)
+            await conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS knowledge_ai AFTER INSERT ON knowledge BEGIN
+                    INSERT INTO knowledge_fts(rowid, key, value, market, symbol)
+                    VALUES (new.id, new.key, new.value, new.market, new.symbol);
+                END
+            """)
+            await conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS knowledge_ad AFTER DELETE ON knowledge BEGIN
+                    INSERT INTO knowledge_fts(knowledge_fts, rowid, key, value, market, symbol)
+                    VALUES ('delete', old.id, old.key, old.value, old.market, old.symbol);
+                END
+            """)
+        except Exception:
+            pass
         await conn.commit()
 
     async def create_session(self, session_id: str) -> None:
@@ -140,6 +179,61 @@ class AsyncAgentMemory:
         rows = await cursor.fetchall()
         return [{"market": r[0], "symbol": r[1], "key": r[2], "value": r[3]} for r in rows]
 
+    async def search_history(self, keyword: str, session_id: str | None = None, limit: int = 20) -> list[dict]:
+        conn = await self._get_conn()
+        if session_id:
+            cursor = await conn.execute(
+                """SELECT m.role, m.content, m.metadata, m.created_at
+                   FROM messages_fts f
+                   JOIN messages m ON m.id = f.rowid
+                   WHERE messages_fts MATCH ? AND m.session_id = ?
+                   ORDER BY m.id DESC LIMIT ?""",
+                (keyword, session_id, limit),
+            )
+        else:
+            cursor = await conn.execute(
+                """SELECT m.role, m.content, m.metadata, m.created_at
+                   FROM messages_fts f
+                   JOIN messages m ON m.id = f.rowid
+                   WHERE messages_fts MATCH ?
+                   ORDER BY m.id DESC LIMIT ?""",
+                (keyword, limit),
+            )
+        rows = await cursor.fetchall()
+        result = []
+        for role, content, metadata, created_at in reversed(rows):
+            msg = {"role": role, "content": content, "created_at": created_at}
+            if metadata:
+                try:
+                    msg["metadata"] = json.loads(metadata)
+                except json.JSONDecodeError:
+                    pass
+            result.append(msg)
+        return result
+
+    async def search_knowledge(self, keyword: str, market: str | None = None) -> list[dict]:
+        conn = await self._get_conn()
+        if market:
+            cursor = await conn.execute(
+                """SELECT k.market, k.symbol, k.key, k.value
+                   FROM knowledge_fts f
+                   JOIN knowledge k ON k.id = f.rowid
+                   WHERE knowledge_fts MATCH ? AND k.market = ?
+                   ORDER BY k.id DESC""",
+                (keyword, market),
+            )
+        else:
+            cursor = await conn.execute(
+                """SELECT k.market, k.symbol, k.key, k.value
+                   FROM knowledge_fts f
+                   JOIN knowledge k ON k.id = f.rowid
+                   WHERE knowledge_fts MATCH ?
+                   ORDER BY k.id DESC""",
+                (keyword,),
+            )
+        rows = await cursor.fetchall()
+        return [{"market": r[0], "symbol": r[1], "key": r[2], "value": r[3]} for r in rows]
+
     async def close(self):
         if self._conn:
             await self._conn.close()
@@ -195,6 +289,19 @@ class AgentMemory:
             CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
             CREATE INDEX IF NOT EXISTS idx_trades_session ON trades(session_id);
         """)
+        try:
+            self._conn.executescript("""
+                CREATE VIRTUAL TABLE IF NOT EXISTS messages_fts USING fts5(
+                    content, role, session_id, created_at,
+                    content=messages, content_rowid=id
+                );
+                CREATE VIRTUAL TABLE IF NOT EXISTS knowledge_fts USING fts5(
+                    key, value, market, symbol,
+                    content=knowledge, content_rowid=id
+                );
+            """)
+        except Exception:
+            pass
         self._conn.commit()
 
     def create_session(self, session_id: str) -> None:
@@ -261,6 +368,57 @@ class AgentMemory:
             query += " AND symbol = ?"
             params.append(symbol)
         rows = self._conn.execute(query, params).fetchall()
+        return [{"market": r[0], "symbol": r[1], "key": r[2], "value": r[3]} for r in rows]
+
+    def search_history(self, keyword: str, session_id: str | None = None, limit: int = 20) -> list[dict]:
+        if session_id:
+            rows = self._conn.execute(
+                """SELECT m.role, m.content, m.metadata, m.created_at
+                   FROM messages_fts f
+                   JOIN messages m ON m.id = f.rowid
+                   WHERE messages_fts MATCH ? AND m.session_id = ?
+                   ORDER BY m.id DESC LIMIT ?""",
+                (keyword, session_id, limit),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                """SELECT m.role, m.content, m.metadata, m.created_at
+                   FROM messages_fts f
+                   JOIN messages m ON m.id = f.rowid
+                   WHERE messages_fts MATCH ?
+                   ORDER BY m.id DESC LIMIT ?""",
+                (keyword, limit),
+            ).fetchall()
+        result = []
+        for role, content, metadata, created_at in reversed(rows):
+            msg = {"role": role, "content": content, "created_at": created_at}
+            if metadata:
+                try:
+                    msg["metadata"] = json.loads(metadata)
+                except json.JSONDecodeError:
+                    pass
+            result.append(msg)
+        return result
+
+    def search_knowledge(self, keyword: str, market: str | None = None) -> list[dict]:
+        if market:
+            rows = self._conn.execute(
+                """SELECT k.market, k.symbol, k.key, k.value
+                   FROM knowledge_fts f
+                   JOIN knowledge k ON k.id = f.rowid
+                   WHERE knowledge_fts MATCH ? AND k.market = ?
+                   ORDER BY k.id DESC""",
+                (keyword, market),
+            ).fetchall()
+        else:
+            rows = self._conn.execute(
+                """SELECT k.market, k.symbol, k.key, k.value
+                   FROM knowledge_fts f
+                   JOIN knowledge k ON k.id = f.rowid
+                   WHERE knowledge_fts MATCH ?
+                   ORDER BY k.id DESC""",
+                (keyword,),
+            ).fetchall()
         return [{"market": r[0], "symbol": r[1], "key": r[2], "value": r[3]} for r in rows]
 
     def close(self):

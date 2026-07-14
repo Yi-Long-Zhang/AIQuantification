@@ -165,7 +165,7 @@ docs/                   # 设计文档与教程
 
 - Python 3.13+, FastAPI, uvicorn
 - 包管理: uv
-- 数据: pandas, numpy, yfinance, akshare, pandas-ta
+- 数据: pandas, numpy, yfinance, akshare
 - LLM: OpenAI 兼容 API（DeepSeek/OpenAI/Qwen/Gemini）
 - 配置: YAML（`agent/config.py` → `Settings` 对象）
 

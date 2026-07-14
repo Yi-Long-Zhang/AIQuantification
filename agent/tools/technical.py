@@ -1,7 +1,87 @@
 import pandas as pd
-import pandas_ta as ta
 
 from .registry import tool
+
+
+def _sma(series: pd.Series, length: int) -> pd.Series:
+    return series.rolling(window=length).mean()
+
+
+def _ema(series: pd.Series, length: int) -> pd.Series:
+    return series.ewm(span=length, adjust=False).mean()
+
+
+def _rsi(series: pd.Series, length: int = 14) -> pd.Series:
+    delta = series.diff()
+    gain = delta.where(delta > 0, 0).rolling(window=length).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=length).mean()
+    rs = gain / loss.replace(0, pd.NA)
+    return 100 - (100 / (1 + rs))
+
+
+def _macd(series: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9) -> pd.DataFrame:
+    ema_fast = _ema(series, fast)
+    ema_slow = _ema(series, slow)
+    macd_line = ema_fast - ema_slow
+    signal_line = _ema(macd_line, signal)
+    histogram = macd_line - signal_line
+    return pd.DataFrame({
+        "MACD_12_26_9": macd_line,
+        "MACDs_12_26_9": signal_line,
+        "MACDh_12_26_9": histogram,
+    })
+
+
+def _bbands(series: pd.Series, length: int = 20, std: float = 2.0) -> pd.DataFrame:
+    middle = _sma(series, length)
+    rolling_std = series.rolling(window=length).std()
+    upper = middle + std * rolling_std
+    lower = middle - std * rolling_std
+    return pd.DataFrame({
+        "BBL_20_2.0": lower,
+        "BBM_20_2.0": middle,
+        "BBU_20_2.0": upper,
+    })
+
+
+def _atr(high: pd.Series, low: pd.Series, close: pd.Series, length: int = 14) -> pd.Series:
+    tr1 = high - low
+    tr2 = (high - close.shift()).abs()
+    tr3 = (low - close.shift()).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+    return tr.rolling(window=length).mean()
+
+
+def _stoch(high: pd.Series, low: pd.Series, close: pd.Series, k: int = 14, d: int = 3) -> pd.DataFrame:
+    lowest_low = low.rolling(window=k).min()
+    highest_high = high.rolling(window=k).max()
+    stoch_k = 100 * (close - lowest_low) / (highest_high - lowest_low).replace(0, pd.NA)
+    stoch_d = stoch_k.rolling(window=d).mean()
+    return pd.DataFrame({
+        "STOCHk_14_3_3": stoch_k,
+        "STOCHd_14_3_3": stoch_d,
+    })
+
+
+def _adx(high: pd.Series, low: pd.Series, close: pd.Series, length: int = 14) -> pd.DataFrame:
+    plus_dm = high.diff()
+    minus_dm = -low.diff()
+    plus_dm = plus_dm.where((plus_dm > minus_dm) & (plus_dm > 0), 0)
+    minus_dm = minus_dm.where((minus_dm > plus_dm) & (minus_dm > 0), 0)
+
+    atr_val = _atr(high, low, close, length)
+
+    plus_di = 100 * _ema(plus_dm, length) / atr_val.replace(0, pd.NA)
+    minus_di = 100 * _ema(minus_dm, length) / atr_val.replace(0, pd.NA)
+
+    dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, pd.NA)
+    adx = _ema(dx, length)
+
+    return pd.DataFrame({
+        "ADX_14": adx,
+        "DMP_14": plus_di,
+        "DMN_14": minus_di,
+    })
 
 
 @tool(
@@ -37,27 +117,27 @@ async def calculate_indicators(symbol: str, market: str = "us_stock", indicators
     for ind in indicators:
         try:
             if ind == "sma":
-                sma20 = ta.sma(ohlc["Close"], length=20)
-                sma50 = ta.sma(ohlc["Close"], length=50)
+                sma20 = _sma(ohlc["Close"], 20)
+                sma50 = _sma(ohlc["Close"], 50)
                 result["latest"]["sma20"] = round(sma20.iloc[-1], 2) if not sma20.empty and pd.notna(sma20.iloc[-1]) else None
                 result["latest"]["sma50"] = round(sma50.iloc[-1], 2) if not sma50.empty and pd.notna(sma50.iloc[-1]) else None
                 result["sma_trend"] = "bullish" if result["latest"].get("sma20", 0) > result["latest"].get("sma50", 0) else "bearish"
 
             elif ind == "ema":
-                ema12 = ta.ema(ohlc["Close"], length=12)
-                ema26 = ta.ema(ohlc["Close"], length=26)
+                ema12 = _ema(ohlc["Close"], 12)
+                ema26 = _ema(ohlc["Close"], 26)
                 result["latest"]["ema12"] = round(ema12.iloc[-1], 2) if not ema12.empty and pd.notna(ema12.iloc[-1]) else None
                 result["latest"]["ema26"] = round(ema26.iloc[-1], 2) if not ema26.empty and pd.notna(ema26.iloc[-1]) else None
 
             elif ind == "rsi":
-                rsi = ta.rsi(ohlc["Close"], length=14)
+                rsi = _rsi(ohlc["Close"], 14)
                 val = rsi.iloc[-1] if not rsi.empty and pd.notna(rsi.iloc[-1]) else None
                 result["latest"]["rsi14"] = round(val, 2) if val else None
                 if val is not None:
                     result["rsi_signal"] = "overbought" if val > 70 else "oversold" if val < 30 else "neutral"
 
             elif ind == "macd":
-                macd = ta.macd(ohlc["Close"])
+                macd = _macd(ohlc["Close"])
                 if macd is not None and not macd.empty:
                     result["latest"]["macd"] = round(macd.iloc[-1, 0], 4) if pd.notna(macd.iloc[-1, 0]) else None
                     result["latest"]["macd_signal"] = round(macd.iloc[-1, 1], 4) if macd.shape[1] > 1 and pd.notna(macd.iloc[-1, 1]) else None
@@ -75,25 +155,25 @@ async def calculate_indicators(symbol: str, market: str = "us_stock", indicators
                             result["macd_signal"] = "bearish_weakening"
 
             elif ind == "bb":
-                bb = ta.bbands(ohlc["Close"], length=20)
+                bb = _bbands(ohlc["Close"], 20)
                 if bb is not None and not bb.empty:
-                    result["latest"]["bb_upper"] = round(bb.iloc[-1, 0], 2) if pd.notna(bb.iloc[-1, 0]) else None
+                    result["latest"]["bb_upper"] = round(bb.iloc[-1, 2], 2) if pd.notna(bb.iloc[-1, 2]) else None
                     result["latest"]["bb_middle"] = round(bb.iloc[-1, 1], 2) if bb.shape[1] > 1 and pd.notna(bb.iloc[-1, 1]) else None
-                    result["latest"]["bb_lower"] = round(bb.iloc[-1, 2], 2) if bb.shape[1] > 2 and pd.notna(bb.iloc[-1, 2]) else None
+                    result["latest"]["bb_lower"] = round(bb.iloc[-1, 0], 2) if bb.shape[1] > 2 and pd.notna(bb.iloc[-1, 0]) else None
 
             elif ind == "atr":
-                atr = ta.atr(ohlc["High"], ohlc["Low"], ohlc["Close"], length=14)
+                atr = _atr(ohlc["High"], ohlc["Low"], ohlc["Close"], 14)
                 val = atr.iloc[-1] if not atr.empty and pd.notna(atr.iloc[-1]) else None
                 result["latest"]["atr14"] = round(val, 2) if val else None
 
             elif ind == "stochastic":
-                stoch = ta.stoch(ohlc["High"], ohlc["Low"], ohlc["Close"])
+                stoch = _stoch(ohlc["High"], ohlc["Low"], ohlc["Close"])
                 if stoch is not None and not stoch.empty:
                     result["latest"]["stoch_k"] = round(stoch.iloc[-1, 0], 2)
                     result["latest"]["stoch_d"] = round(stoch.iloc[-1, 1], 2)
 
             elif ind == "adx":
-                adx = ta.adx(ohlc["High"], ohlc["Low"], ohlc["Close"])
+                adx = _adx(ohlc["High"], ohlc["Low"], ohlc["Close"])
                 if adx is not None and not adx.empty:
                     result["latest"]["adx"] = round(adx.iloc[-1, 0], 2)
                     result["latest"]["dmp"] = round(adx.iloc[-1, 1], 2) if adx.shape[1] > 1 else None

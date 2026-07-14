@@ -35,7 +35,7 @@ agent/core.py (QuantAgent)
   ├── agent/memory.py (会话记忆)
   ├── agent/tools/registry.py (工具调度)
   │   ├── market_data.py → yfinance, akshare
-  │   ├── technical.py → pandas-ta
+  │   ├── technical.py → 原生技术指标实现
   │   ├── backtest.py → numpy, pandas
   │   ├── risk.py → numpy
   │   └── news.py → newsapi.org
@@ -52,7 +52,7 @@ agent/core.py (QuantAgent)
 | LLM 调用 | openai (兼容 DeepSeek/OpenAI/Qwen/Gemini) |
 | 美股数据 | yfinance |
 | A股数据 | akshare |
-| 技术指标 | pandas-ta |
+| 技术指标 | 原生实现 |
 | 数值计算 | numpy, pandas |
 | 记忆存储 | SQLite (agent/memory.py) |
 | 配置管理 | PyYAML → Settings 对象 |

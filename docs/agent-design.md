@@ -94,7 +94,7 @@ result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 | market_data.py | `get_klines` | 美股 K 线（yfinance） |
 | market_data.py | `get_cn_klines` | A 股 K 线（akshare） |
 | market_data.py | `get_market_overview` | 市场总览 |
-| technical.py | `calculate_indicators` | 技术指标（pandas-ta） |
+| technical.py | `calculate_indicators` | 技术指标（原生实现） |
 | backtest.py | `run_backtest` | 回测策略 |
 | backtest.py | `compare_strategies` | 策略对比 |
 | risk.py | `calculate_position_size` | 仓位计算（Kelly） |

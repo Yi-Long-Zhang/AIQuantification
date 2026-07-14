@@ -386,7 +386,7 @@ AIQuantification/
 dependencies = [
     # 现有
     "fastapi", "uvicorn", "openai", "pandas", "numpy",
-    "yfinance", "akshare", "pandas-ta", "pyyaml", "aiosqlite",
+    "yfinance", "akshare", "pyyaml", "aiosqlite",
     # 第一阶段新增
     "ccxt>=4.0",                    # 加密货币数据
     "pycoingecko>=3.0",             # CoinGecko 备用

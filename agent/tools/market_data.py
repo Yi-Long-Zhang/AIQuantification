@@ -259,3 +259,94 @@ async def get_market_overview(market: str = "us_stock") -> list[dict]:
         return results
 
     return await asyncio.to_thread(_fetch)
+
+
+# ──────────────────────────────────────────────
+#  Global Macro (akshare)
+# ──────────────────────────────────────────────
+
+async def _fetch_macro_data(data_type: str) -> list[dict] | None:
+    try:
+        import akshare as ak
+
+        def _fetch():
+            fetchers = {
+                "gdp": lambda: ak.macro_china_gdp(),
+                "cpi": lambda: ak.macro_china_cpi(),
+                "pmi": lambda: ak.macro_china_pmi(),
+                "interest_rate": lambda: ak.macro_china_interest_rate(),
+                "social_financing": lambda: ak.macro_china_shrzgm(),
+                "money_supply": lambda: ak.macro_china_money_supply(),
+                "trade_balance": lambda: ak.macro_china_trade_balance(),
+                "industrial_production": lambda: ak.macro_china_industrial_production_yoy(),
+                "retail_sales": lambda: ak.macro_china_consumer_goods_retail(),
+                "unemployment": lambda: ak.macro_china_urban_unemployment(),
+            }
+            fetcher = fetchers.get(data_type)
+            if not fetcher:
+                return None
+            df = fetcher()
+            if df is None or df.empty:
+                return None
+            df = df.head(12)
+            col_map = {"日期": "date", "今值": "value", "前值": "prev", "预测值": "forecast"}
+            df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
+            return _df_to_records(df, max_rows=12)
+
+        return await asyncio.to_thread(_fetch)
+    except Exception as e:
+        logger.warning("akshare macro %s failed: %s", data_type, e)
+        return None
+
+
+@tool(
+    name="get_global_macro",
+    description="获取全球宏观经济数据（GDP/CPI/PMI/利率/社融/M2/贸易差/工业增加值/零售/失业率）",
+    parameters={
+        "indicator": {"type": "string", "description": "指标: gdp, cpi, pmi, interest_rate, social_financing, money_supply, trade_balance, industrial_production, retail_sales, unemployment"},
+    },
+)
+async def get_global_macro(indicator: str = "gdp") -> dict:
+    result = await _fetch_macro_data(indicator)
+    if result is None:
+        return {"error": f"Indicator '{indicator}' not available or fetch failed"}
+    return {"indicator": indicator, "data": result, "count": len(result)}
+
+
+# ──────────────────────────────────────────────
+#  Sector Rotation (akshare)
+# ──────────────────────────────────────────────
+
+@tool(
+    name="get_sector_rotation",
+    description="获取板块轮动分析（行业板块涨跌幅排名）",
+    parameters={
+        "top_n": {"type": "integer", "description": "返回数量，默认15", "default": 15},
+    },
+)
+async def get_sector_rotation(top_n: int = 15) -> dict:
+    try:
+        import akshare as ak
+
+        def _fetch():
+            df = ak.stock_board_industry_name_em()
+            if df is None or df.empty:
+                return {"error": "No sector data available"}
+            col_map = {"板块名称": "name", "板块代码": "code", "最新价": "price",
+                       "涨跌幅": "change_pct", "涨跌额": "change", "总市值": "market_cap",
+                       "换手率": "turnover_rate", "上涨家数": "up_count", "下跌家数": "down_count"}
+            df = df.rename(columns={k: v for k, v in col_map.items() if k in df.columns})
+            if "change_pct" in df.columns:
+                df = df.sort_values("change_pct", ascending=False)
+            top_gainers = _df_to_records(df.head(top_n), max_rows=top_n)
+            top_losers = _df_to_records(df.tail(top_n).iloc[::-1], max_rows=top_n)
+            return {
+                "market": "A股行业板块",
+                "top_gainers": top_gainers,
+                "top_losers": top_losers,
+                "total_sectors": len(df),
+            }
+
+        return await asyncio.to_thread(_fetch)
+    except Exception as e:
+        return {"error": str(e)}

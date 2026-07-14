@@ -114,12 +114,74 @@ class QuantAgent:
         self.memory.save_message(session_id, "user", query)
 
         accumulated = ""
+        tool_calls_buffer: list[dict] = []
+        current_tool_call: dict | None = None
+
         async for chunk in self.llm.chat_stream(messages, tools=self.tools):
             delta = chunk.get("choices", [{}])[0].get("delta", {})
+
             content = delta.get("content", "")
             if content:
                 accumulated += content
                 yield content
+
+            delta_tool_calls = delta.get("tool_calls")
+            if delta_tool_calls:
+                for tc_delta in delta_tool_calls:
+                    tc_index = tc_delta.get("index", 0)
+
+                    if tc_index >= len(tool_calls_buffer):
+                        tool_calls_buffer.append({
+                            "id": tc_delta.get("id", ""),
+                            "function": {"name": "", "arguments": ""},
+                        })
+
+                    tc = tool_calls_buffer[tc_index]
+                    if tc_delta.get("id"):
+                        tc["id"] = tc_delta["id"]
+                    func_delta = tc_delta.get("function", {})
+                    if func_delta.get("name"):
+                        tc["function"]["name"] += func_delta["name"]
+                    if func_delta.get("arguments"):
+                        tc["function"]["arguments"] += func_delta["arguments"]
+
+        if tool_calls_buffer:
+            messages.append({"role": "assistant", "content": accumulated or None, "tool_calls": tool_calls_buffer})
+
+            for tc in tool_calls_buffer:
+                func_name = tc["function"]["name"]
+                try:
+                    args = json.loads(tc["function"]["arguments"])
+                except json.JSONDecodeError:
+                    args = {}
+
+                yield f"\n\n🔧 调用工具: {func_name}\n"
+
+                try:
+                    tool_result = await execute_tool(func_name, **args)
+                    result_str = json.dumps(tool_result, ensure_ascii=False, default=str)
+                except Exception as e:
+                    result_str = json.dumps({"error": str(e)})
+
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": tc["id"],
+                    "content": result_str[:50000],
+                })
+
+                meta = {"tool": func_name, "args": args}
+                self.memory.save_message(session_id, "assistant",
+                                          f"[Tool: {func_name}] {result_str[:500]}", metadata=meta)
+
+            final_accumulated = ""
+            async for chunk in self.llm.chat_stream(messages, tools=self.tools):
+                delta = chunk.get("choices", [{}])[0].get("delta", {})
+                content = delta.get("content", "")
+                if content:
+                    final_accumulated += content
+                    yield content
+
+            accumulated = (accumulated + "\n\n" + final_accumulated).strip() if final_accumulated else accumulated
 
         if accumulated:
             self.memory.save_message(session_id, "assistant", accumulated)

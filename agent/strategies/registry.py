@@ -131,6 +131,29 @@ class MultiFactorStrategy(Strategy):
         return signals
 
 
+class CryptoFundingStrategy(Strategy):
+    name = "crypto_funding"
+    description = "加密货币资金费率套利策略（基于动量和波动率代理）"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        ret_8h = df["Close"].pct_change(3)
+        ret_24h = df["Close"].pct_change(9)
+        vol_24h = df["Close"].pct_change().rolling(9).std()
+
+        momentum_signal = pd.Series(0, index=df.index)
+        momentum_signal[ret_8h > 0.02] = 1
+        momentum_signal[ret_8h < -0.02] = -1
+
+        vol_signal = pd.Series(0, index=df.index)
+        vol_signal[vol_24h > vol_24h.rolling(20).mean() * 1.5] = -1
+        vol_signal[vol_24h < vol_24h.rolling(20).mean() * 0.5] = 1
+
+        signals = pd.Series(0, index=df.index)
+        signals[(momentum_signal == 1) & (vol_signal >= 0)] = 1
+        signals[(momentum_signal == -1) & (vol_signal <= 0)] = -1
+        return signals
+
+
 _STRATEGIES: dict[str, type[Strategy]] = {
     "sma_cross": SMACrossStrategy,
     "macd": MACDStrategy,
@@ -139,6 +162,7 @@ _STRATEGIES: dict[str, type[Strategy]] = {
     "ichimoku": IchimokuStrategy,
     "smc": SMCStrategy,
     "multi_factor": MultiFactorStrategy,
+    "crypto_funding": CryptoFundingStrategy,
 }
 
 

@@ -174,6 +174,18 @@ def _generate_signals(df: pd.DataFrame, strategy: str) -> pd.Series:
         signals[composite > 0.6] = 1
         signals[composite < 0.4] = -1
 
+    elif strategy == "crypto_funding":
+        ret_8h = df["Close"].pct_change(3)
+        vol_24h = df["Close"].pct_change().rolling(9).std()
+        momentum_signal = pd.Series(0, index=df.index)
+        momentum_signal[ret_8h > 0.02] = 1
+        momentum_signal[ret_8h < -0.02] = -1
+        vol_signal = pd.Series(0, index=df.index)
+        vol_signal[vol_24h > vol_24h.rolling(20).mean() * 1.5] = -1
+        vol_signal[vol_24h < vol_24h.rolling(20).mean() * 0.5] = 1
+        signals[(momentum_signal == 1) & (vol_signal >= 0)] = 1
+        signals[(momentum_signal == -1) & (vol_signal <= 0)] = -1
+
     return signals
 
 

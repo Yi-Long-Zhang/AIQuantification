@@ -86,7 +86,7 @@ Agent 调用工具时：
 result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 ```
 
-### 工具列表（共 28 个）
+### 工具列表（共 30 个）
 
 | 文件 | 工具 | 用途 |
 |------|------|------|
@@ -94,6 +94,8 @@ result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 | market_data.py | `get_klines` | K 线数据（自动切换 US/CN/HK/Crypto） |
 | market_data.py | `get_cn_klines` | A 股 K 线（akshare） |
 | market_data.py | `get_market_overview` | 市场总览 |
+| market_data.py | `get_global_macro` | 全球宏观数据（GDP/CPI/PMI/利率等） |
+| market_data.py | `get_sector_rotation` | 板块轮动分析 |
 | hk_stock.py | `get_hk_klines` | 港股 K 线（AKShare） |
 | hk_stock.py | `get_hk_realtime` | 港股实时行情 |
 | hk_stock.py | `get_hk_index` | 港股指数（恒指/恒生科技） |
@@ -121,16 +123,44 @@ result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 | news.py | `analyze_sentiment` | 情绪分析（Fear & Greed/VIX） |
 | constitution.py | `check_constitution` | 合规检查 |
 
+## 技能系统
+
+`agent/skills/` 使用 YAML 定义可复用分析工作流：
+
+```
+agent/skills/
+├── registry.py          # 技能注册中心
+├── loader.py            # YAML 自动发现加载
+└── skills/
+    ├── hk_fund_flow.yaml      # 港股资金流分析技能
+    ├── crypto_sentiment.yaml  # 加密货币情绪分析技能
+    └── multi_market_compare.yaml # 多市场对比技能
+```
+
+## 因子库（Alpha Zoo）
+
+`agent/alpha/` 提供 251+ 量化因子：
+
+| 因子库 | 数量 | 来源 |
+|--------|------|------|
+| Alpha158 | 150 | Microsoft Qlib |
+| Alpha101 | 101 | Kakushadze 论文 |
+| **合计** | **251** | |
+
+评估指标：IC（信息系数）、IR（信息比率）、换手率、存活率、Sharpe、最大回撤
+
 ## 记忆系统
 
-`agent/memory.py` 使用 SQLite 存储：
+`agent/memory.py` 使用 SQLite + FTS5 全文搜索：
 
 - **sessions** 表：会话元数据
 - **messages** 表：对话历史
+- **messages_fts**：消息全文搜索索引
 - **trades** 表：交易记录
 - **knowledge** 表：知识库
+- **knowledge_fts**：知识全文搜索索引
 
-每次对话自动存储，下次打开同一 session 可恢复上下文。
+每次对话自动存储，下次打开同一 session 可恢复上下文。支持全文搜索历史分析。
 
 ## 策略系统
 

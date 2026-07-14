@@ -189,9 +189,6 @@ class Alpha101:
         defs.append(FactorDef("alpha040", "volume", "Rank(volume/ts_mean(volume,20))*Rank(volume/delay(volume,1))",
                               lambda df: _ts_rank(_safe_div(df["volume"], _ts_mean(df["volume"], 20)), 10) *
                                          _ts_rank(df["volume"].pct_change(), 10)))
-        defs.append(FactorDef("alpha040", "volume", "Rank(volume/ts_mean(volume,20))*Rank(volume/delay(volume,1)) #40",
-                              lambda df: _ts_rank(_safe_div(df["volume"], _ts_mean(df["volume"], 20)), 10) *
-                                         _ts_rank(df["volume"].pct_change(), 10)))
 
         # ── Alpha#41-50 ──
         defs.append(FactorDef("alpha041", "price", "Rank(open-delay(close,1))*Rank(close/open-1)",

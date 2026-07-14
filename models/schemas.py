@@ -10,7 +10,7 @@ class AgentMessage(BaseModel):
     content: str
     tool_calls: list[dict[str, Any]] | None = None
     tool_results: list[dict[str, Any]] | None = None
-    timestamp: datetime = datetime.now()
+    timestamp: datetime = Field(default_factory=datetime.now)
 
 
 class AgentRequest(BaseModel):
@@ -61,4 +61,17 @@ class TradeSignal(BaseModel):
     stop_loss: float | None = Field(None, gt=0, description="止损价格")
     take_profit: float | None = Field(None, gt=0, description="止盈价格")
     reason: str = Field(..., min_length=1, max_length=1000, description="交易理由")
-    timestamp: datetime = datetime.now()
+    timestamp: datetime = Field(default_factory=datetime.now)
+
+
+class AlphaComputeRequest(BaseModel):
+    symbol: str = Field(..., min_length=1, max_length=20, description="股票代码")
+    market: str = Field("us_stock", max_length=20, description="市场类型")
+    factor_set: str = Field("alpha158", max_length=20, description="因子集: alpha158/alpha101")
+
+
+class AlphaEvaluateRequest(BaseModel):
+    symbol: str = Field(..., min_length=1, max_length=20, description="股票代码")
+    market: str = Field("us_stock", max_length=20, description="市场类型")
+    factor_set: str = Field("alpha158", max_length=20, description="因子集: alpha158/alpha101")
+    top_n: int = Field(20, ge=1, le=100, description="返回前N个因子")

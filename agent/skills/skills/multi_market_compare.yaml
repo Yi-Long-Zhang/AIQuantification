@@ -12,9 +12,10 @@ tool_params:
     symbol: "AAPL"
   get_klines:
     symbol: "AAPL"
-    period: "1d"
+    interval: "1d"
   get_sector_rotation: {}
-  get_global_macro: {}
+  get_global_macro:
+    indicator: "gdp"
 tags:
   - multi_market
   - comparison

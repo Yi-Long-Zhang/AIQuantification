@@ -38,14 +38,14 @@ POST /agent/chat/stream
 
 ```
 GET /agent/tools
-→ {"tools": ["get_stock_quote", "get_klines", ...], "count": 13}
+→ {"tools": ["get_stock_quote", "get_klines", ...], "count": 35}
 ```
 
 ### 策略列表
 
 ```
 GET /strategies
-→ {"strategies": ["sma_cross", "macd", "rsi", "bollinger"]}
+→ {"strategies": [{"name": "sma_cross", "description": "..."}, {"name": "macd", ...}, ...]}
 ```
 
 ### 回测

@@ -45,7 +45,7 @@ class FactorEvaluator:
 
     @staticmethod
     def compute_rank_ic(factor_values: pd.Series, returns: pd.Series) -> pd.Series:
-        return factor_values.rolling(20, min_periods=5).corr(returns)
+        return FactorEvaluator.compute_ic(factor_values, returns, method="spearman")
 
     @staticmethod
     def compute_turnover(factor_values: pd.Series, top_pct: float = 0.1) -> float:

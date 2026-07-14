@@ -54,12 +54,12 @@ def _ts_cov(a: pd.Series, b: pd.Series, window: int) -> pd.Series:
 class Alpha158:
     """Qlib Alpha158 因子库（150 因子）"""
 
-    factors: list[FactorDef] = []
+    _factors_cache: list[FactorDef] | None = None
 
     @classmethod
     def _build_factors(cls) -> list[FactorDef]:
-        if cls.factors:
-            return cls.factors
+        if cls._factors_cache is not None:
+            return cls._factors_cache
 
         defs: list[FactorDef] = []
 
@@ -244,7 +244,7 @@ class Alpha158:
             defs.append(FactorDef(f"COMPLEX_skewness_{d}", "complex", f"偏度{d}日",
                                   lambda df, w=d: df["close"].pct_change().rolling(w, min_periods=1).skew()))
 
-        cls.factors = defs
+        cls._factors_cache = defs
         return defs
 
     @classmethod

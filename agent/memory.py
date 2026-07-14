@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
 import aiosqlite
+
+logger = logging.getLogger(__name__)
 
 
 class AsyncAgentMemory:
@@ -19,11 +22,10 @@ class AsyncAgentMemory:
     async def _get_conn(self) -> aiosqlite.Connection:
         if self._conn is None:
             self._conn = await aiosqlite.connect(self._db_path)
-            await self._init_db()
+            await self._init_db(self._conn)
         return self._conn
 
-    async def _init_db(self):
-        conn = await self._get_conn()
+    async def _init_db(self, conn: aiosqlite.Connection) -> None:
         await conn.executescript("""
             CREATE TABLE IF NOT EXISTS sessions (
                 session_id TEXT PRIMARY KEY,
@@ -117,9 +119,8 @@ class AsyncAgentMemory:
                     VALUES (new.id, new.key, new.value, new.market, new.symbol);
                 END
             """)
-        except Exception:
-            pass
-        await conn.commit()
+        except Exception as e:
+            logger.warning("FTS5 initialization failed (async): %s", e)
 
     async def create_session(self, session_id: str) -> None:
         now = datetime.now(timezone.utc).isoformat()
@@ -261,8 +262,8 @@ class AsyncAgentMemory:
             await conn.execute("INSERT INTO messages_fts(messages_fts) VALUES('rebuild')")
             await conn.execute("INSERT INTO knowledge_fts(knowledge_fts) VALUES('rebuild')")
             await conn.commit()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("FTS5 rebuild failed (async): %s", e)
 
 
 class AgentMemory:
@@ -355,8 +356,8 @@ class AgentMemory:
                     VALUES (new.id, new.key, new.value, new.market, new.symbol);
                 END;
             """)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("FTS5 initialization failed (sync): %s", e)
         self._conn.commit()
 
     def create_session(self, session_id: str) -> None:
@@ -484,5 +485,5 @@ class AgentMemory:
             self._conn.execute("INSERT INTO messages_fts(messages_fts) VALUES('rebuild')")
             self._conn.execute("INSERT INTO knowledge_fts(knowledge_fts) VALUES('rebuild')")
             self._conn.commit()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("FTS5 rebuild failed (sync): %s", e)

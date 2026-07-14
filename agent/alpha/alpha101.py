@@ -84,13 +84,25 @@ def _ts_min(s: pd.Series, window: int) -> pd.Series:
 class Alpha101:
     """Kakushadze Alpha101 因子库（101 因子）"""
 
-    factors: list[FactorDef] = []
+    _factors_cache: list[FactorDef] | None = None
 
     @classmethod
     def _build_factors(cls) -> list[FactorDef]:
-        if cls.factors:
-            return cls.factors
+        if cls._factors_cache is not None:
+            return cls._factors_cache
 
+        defs: list[FactorDef] = []
+        defs.extend(cls._build_001_020())
+        defs.extend(cls._build_021_040())
+        defs.extend(cls._build_041_060())
+        defs.extend(cls._build_061_080())
+        defs.extend(cls._build_081_101())
+
+        cls._factors_cache = defs
+        return defs
+
+    @staticmethod
+    def _build_001_020() -> list[FactorDef]:
         defs: list[FactorDef] = []
 
         # ── Alpha#1-10 ──
@@ -138,6 +150,11 @@ class Alpha101:
                               lambda df: _ts_rank(df["close"].pct_change(1), 10)))
         defs.append(FactorDef("alpha020", "momentum", "Rank(close/delay(close,10)-1)",
                               lambda df: _ts_rank(df["close"].pct_change(10), 10)))
+        return defs
+
+    @staticmethod
+    def _build_021_040() -> list[FactorDef]:
+        defs: list[FactorDef] = []
 
         # ── Alpha#21-30 ──
         defs.append(FactorDef("alpha021", "volume", "Rank(Ts_Mean(volume,20))",
@@ -146,9 +163,9 @@ class Alpha101:
                               lambda df: _ts_rank(_safe_div(df["volume"], _ts_mean(df["volume"], 20)), 10)))
         defs.append(FactorDef("alpha023", "volume", "Rank(volume/mean(volume,10)) #23",
                               lambda df: _ts_rank(_safe_div(df["volume"], _ts_mean(df["volume"], 10)), 10)))
-        defs.append(FactorDef("alpha024", "momentum", "Rank(close/delay(close,5)-1)*Rank(volume/delay(volume,5)) #24",
-                              lambda df: _ts_rank(df["close"].pct_change(5), 10) *
-                                         _ts_rank(df["volume"].pct_change(5), 10)))
+        defs.append(FactorDef("alpha024", "momentum", "Rank(close/delay(close,10)-1)*Rank(volume/delay(volume,10)) #24",
+                              lambda df: _ts_rank(df["close"].pct_change(10), 10) *
+                                         _ts_rank(df["volume"].pct_change(10), 10)))
         defs.append(FactorDef("alpha025", "rank", "Rank(high-close)",
                               lambda df: _ts_rank(df["high"] - df["close"], 10)))
         defs.append(FactorDef("alpha026", "rank", "Rank(close-low)",
@@ -170,8 +187,8 @@ class Alpha101:
                               lambda df: _ts_rank(df["close"].pct_change().shift(1), 10) * _ts_rank(df["close"].pct_change(), 10)))
         defs.append(FactorDef("alpha033", "momentum", "Rank(close/delay(close,3)-1) #33",
                               lambda df: _ts_rank(df["close"].pct_change(3), 10)))
-        defs.append(FactorDef("alpha034", "rank", "Rank(-1+close/open)",
-                              lambda df: _ts_rank(df["close"] / df["open"] - 1, 10)))
+        defs.append(FactorDef("alpha034", "rank", "Rank(close/low-1) #34",
+                              lambda df: _ts_rank(df["close"] / df["low"] - 1, 10)))
         defs.append(FactorDef("alpha035", "momentum", "Rank(sign(close-delay(close,1))+sign(delay(close,1)-delay(close,2))+sign(delay(close,2)-delay(close,3)))",
                               lambda df: _ts_rank(np.sign(df["close"].diff(1)) + np.sign(df["close"].diff(1).shift(1)) + np.sign(df["close"].diff(1).shift(2)), 10)))
         defs.append(FactorDef("alpha036", "momentum", "Rank(close/delay(close,1)-1)*Rank(volume/mean(volume,20))",
@@ -189,6 +206,11 @@ class Alpha101:
         defs.append(FactorDef("alpha040", "volume", "Rank(volume/ts_mean(volume,20))*Rank(volume/delay(volume,1))",
                               lambda df: _ts_rank(_safe_div(df["volume"], _ts_mean(df["volume"], 20)), 10) *
                                          _ts_rank(df["volume"].pct_change(), 10)))
+        return defs
+
+    @staticmethod
+    def _build_041_060() -> list[FactorDef]:
+        defs: list[FactorDef] = []
 
         # ── Alpha#41-50 ──
         defs.append(FactorDef("alpha041", "price", "Rank(open-delay(close,1))*Rank(close/open-1)",
@@ -206,8 +228,8 @@ class Alpha101:
         defs.append(FactorDef("alpha046", "momentum", "Rank(Ts_Max(close,5)-close)*Rank(corr(ts_mean(volume,20),close,5))*(-1)",
                               lambda df: _ts_rank(_ts_max(df["close"], 5) - df["close"], 10) *
                                          _ts_rank(_ts_corr(_ts_mean(df["volume"], 20), df["close"], 5), 10) * (-1)))
-        defs.append(FactorDef("alpha047", "rank", "Rank(-1*(1-open/close))",
-                              lambda df: _ts_rank(-1 * (1 - df["close"] / df["open"]), 10)))
+        defs.append(FactorDef("alpha047", "rank", "Rank(high/open-1) #47",
+                              lambda df: _ts_rank(df["high"] / df["open"] - 1, 10)))
         defs.append(FactorDef("alpha048", "correlation", "Rank(corr(mean(volume,20),close,5))",
                               lambda df: _ts_rank(_ts_corr(_ts_mean(df["volume"], 20), df["close"], 5), 10)))
         defs.append(FactorDef("alpha049", "momentum", "Rank(close/delay(close,5)-1)*(-1) #49",
@@ -237,8 +259,13 @@ class Alpha101:
                               lambda df: _ts_rank(_safe_div(df["volume"], _ts_mean(df["volume"], 20)), 10) * (-1)))
         defs.append(FactorDef("alpha059", "rank", "Rank(open-delay(close,1))",
                               lambda df: _ts_rank(df["open"] - df["close"].shift(1), 10)))
-        defs.append(FactorDef("alpha060", "rank", "Rank(-1*(1-close/open))",
-                              lambda df: _ts_rank(-1 * (1 - df["close"] / df["open"]), 10)))
+        defs.append(FactorDef("alpha060", "rank", "Rank((high+low)/2/close-1) #60",
+                              lambda df: _ts_rank(_safe_div((df["high"] + df["low"]) / 2, df["close"]) - 1, 10)))
+        return defs
+
+    @staticmethod
+    def _build_061_080() -> list[FactorDef]:
+        defs: list[FactorDef] = []
 
         # ── Alpha#61-70 ──
         defs.append(FactorDef("alpha061", "rank", "Rank(1-close/ts_max(close,10))",
@@ -285,15 +312,20 @@ class Alpha101:
                               lambda df: _ts_rank(_safe_div(df["close"], _ts_min(df["close"], 10)) - 1, 10) * (-1)))
         defs.append(FactorDef("alpha080", "rank", "Rank(close/ts_max(close,10)-1)*(-1)",
                               lambda df: _ts_rank(_safe_div(df["close"], _ts_max(df["close"], 10)) - 1, 10) * (-1)))
+        return defs
+
+    @staticmethod
+    def _build_081_101() -> list[FactorDef]:
+        defs: list[FactorDef] = []
 
         # ── Alpha#81-90 ──
         defs.append(FactorDef("alpha081", "volume", "Rank(volume/ts_mean(volume,10))",
                               lambda df: _ts_rank(_safe_div(df["volume"], _ts_mean(df["volume"], 10)), 10)))
-        defs.append(FactorDef("alpha082", "volume", "Rank(volume/ts_max(volume,10)) #82",
-                              lambda df: _ts_rank(_safe_div(df["volume"], _ts_max(df["volume"], 10)), 10)))
-        defs.append(FactorDef("alpha083", "momentum", "Rank(close/delay(close,5)-1)*Rank(volume/delay(volume,5)) #83",
-                              lambda df: _ts_rank(df["close"].pct_change(5), 10) *
-                                         _ts_rank(df["volume"].pct_change(5), 10)))
+        defs.append(FactorDef("alpha082", "volume", "Rank(volume/ts_min(volume,20)) #82",
+                              lambda df: _ts_rank(_safe_div(df["volume"], _ts_min(df["volume"], 20)), 10)))
+        defs.append(FactorDef("alpha083", "momentum", "Rank(close/delay(close,20)-1)*Rank(volume/delay(volume,20)) #83",
+                              lambda df: _ts_rank(df["close"].pct_change(20), 10) *
+                                         _ts_rank(df["volume"].pct_change(20), 10)))
         defs.append(FactorDef("alpha084", "rank", "Rank(close/ts_mean(close,5)-1) #84",
                               lambda df: _ts_rank(_safe_div(df["close"], _ts_mean(df["close"], 5)) - 1, 10)))
         defs.append(FactorDef("alpha085", "momentum", "Rank(close/delay(close,10)-1)*Rank(volume/delay(volume,10))",
@@ -301,8 +333,8 @@ class Alpha101:
                                          _ts_rank(df["volume"].pct_change(10), 10)))
         defs.append(FactorDef("alpha086", "rank", "Rank(close/ts_mean(close,10)-1)*(-1)",
                               lambda df: _ts_rank(_safe_div(df["close"], _ts_mean(df["close"], 10)) - 1, 10) * (-1)))
-        defs.append(FactorDef("alpha087", "rank", "Rank(open-delay(close,1)) #87",
-                              lambda df: _ts_rank(df["open"] - df["close"].shift(1), 10)))
+        defs.append(FactorDef("alpha087", "rank", "Rank(low-delay(close,1)) #87",
+                              lambda df: _ts_rank(df["low"] - df["close"].shift(1), 10)))
         defs.append(FactorDef("alpha088", "rank", "Rank(close/ts_min(close,5)-1)*(-1)",
                               lambda df: _ts_rank(_safe_div(df["close"], _ts_min(df["close"], 5)) - 1, 10) * (-1)))
         defs.append(FactorDef("alpha089", "volume", "Rank(volume/ts_min(volume,10)) #89",
@@ -329,9 +361,9 @@ class Alpha101:
         defs.append(FactorDef("alpha096", "momentum", "Rank(close/delay(close,2)-1)*Rank(volume/delay(volume,1))*(-1) #96",
                               lambda df: _ts_rank(df["close"].pct_change(2), 10) *
                                          _ts_rank(df["volume"].pct_change(), 10) * (-1)))
-        defs.append(FactorDef("alpha097", "rank", "Rank(open-delay(close,1))*Rank(close/open-1) #97",
+        defs.append(FactorDef("alpha097", "rank", "Rank(open-delay(close,1))*Rank(high/low-1) #97",
                               lambda df: _ts_rank(df["open"] - df["close"].shift(1), 10) *
-                                         _ts_rank(df["close"] / df["open"] - 1, 10)))
+                                         _ts_rank(_safe_div(df["high"], df["low"]) - 1, 10)))
         defs.append(FactorDef("alpha098", "rank", "Rank(close/ts_mean(close,10)-1) #98",
                               lambda df: _ts_rank(_safe_div(df["close"], _ts_mean(df["close"], 10)) - 1, 10)))
         defs.append(FactorDef("alpha099", "correlation", "Rank(corr(close,mean(volume,20),5)) #99",
@@ -342,8 +374,6 @@ class Alpha101:
         defs.append(FactorDef("alpha101", "volatility", "Rank(close/delay(close,1)-1)*Rank(volume/delay(volume,5))*(-1) #101",
                               lambda df: _ts_rank(df["close"].pct_change(), 10) *
                                          _ts_rank(df["volume"].pct_change(5), 10) * (-1)))
-
-        cls.factors = defs
         return defs
 
     @classmethod

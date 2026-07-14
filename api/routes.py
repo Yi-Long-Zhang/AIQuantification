@@ -10,7 +10,10 @@ from agent.config import settings
 from agent.core import QuantAgent
 from agent.strategies.registry import list_strategies
 from agent.tools.registry import get_tool_names
-from models.schemas import AgentRequest, AgentResponse, BacktestRequest, BacktestResult, MarketDataRequest
+from models.schemas import (
+    AgentRequest, AgentResponse, AlphaComputeRequest, AlphaEvaluateRequest,
+    BacktestRequest, BacktestResult, MarketDataRequest,
+)
 
 router = APIRouter()
 _agent: QuantAgent | None = None
@@ -40,11 +43,15 @@ async def agent_chat_stream(request: Request, req: AgentRequest):
     agent = get_agent()
 
     async def generate():
-        yield f"data: {{\"session_id\": \"{session_id}\"}}\n\n"
-        async for chunk in agent.stream_chat(req.query, session_id):
-            if chunk:
-                yield f"data: {chunk}\n\n"
-        yield "data: [DONE]\n\n"
+        try:
+            yield f"data: {{\"session_id\": \"{session_id}\"}}\n\n"
+            async for chunk in agent.stream_chat(req.query, session_id):
+                if chunk:
+                    yield f"data: {chunk}\n\n"
+            yield "data: [DONE]\n\n"
+        except Exception as e:
+            yield f"data: {{\"error\": \"{e}\"}}\n\n"
+            yield "data: [DONE]\n\n"
 
     return StreamingResponse(
         generate(),
@@ -68,7 +75,8 @@ async def get_strategies():
 
 
 @router.post("/backtest", response_model=list[BacktestResult])
-async def run_backtest(req: BacktestRequest):
+@limiter.limit("5/minute")
+async def run_backtest(request: Request, req: BacktestRequest):
     from agent.tools.backtest import run_backtest as run_bt
     results = []
     for symbol in req.symbols:
@@ -94,19 +102,22 @@ async def run_backtest(req: BacktestRequest):
 
 
 @router.get("/market/{market}/overview")
-async def market_overview(market: str = "us_stock"):
+@limiter.limit("20/minute")
+async def market_overview(request: Request, market: str = "us_stock"):
     from agent.tools.market_data import get_market_overview
     return await get_market_overview(market)
 
 
 @router.post("/market/quote")
-async def market_quote(req: MarketDataRequest):
+@limiter.limit("20/minute")
+async def market_quote(request: Request, req: MarketDataRequest):
     from agent.tools.market_data import get_stock_quote
     return await get_stock_quote(req.symbol, req.market)
 
 
 @router.post("/market/klines")
-async def market_klines(req: MarketDataRequest):
+@limiter.limit("20/minute")
+async def market_klines(request: Request, req: MarketDataRequest):
     if req.market == "cn_stock":
         from agent.tools.market_data import get_cn_klines
         return await get_cn_klines(req.symbol, req.interval, req.period)
@@ -115,21 +126,24 @@ async def market_klines(req: MarketDataRequest):
 
 
 @router.get("/alpha/factors")
-async def list_alpha_factors(factor_set: str = "all"):
+@limiter.limit("10/minute")
+async def list_alpha_factors(request: Request, factor_set: str = "all"):
     from agent.tools.alpha import list_alpha_factors as list_factors
     return await list_factors(factor_set)
 
 
 @router.post("/alpha/compute")
-async def compute_alpha(symbol: str, market: str = "us_stock", factor_set: str = "alpha158"):
+@limiter.limit("5/minute")
+async def compute_alpha(request: Request, req: AlphaComputeRequest):
     from agent.tools.alpha import compute_alpha_factors
-    return await compute_alpha_factors(symbol, market, factor_set)
+    return await compute_alpha_factors(req.symbol, req.market, req.factor_set)
 
 
 @router.post("/alpha/evaluate")
-async def evaluate_alpha(symbol: str, market: str = "us_stock", factor_set: str = "alpha158", top_n: int = 20):
+@limiter.limit("5/minute")
+async def evaluate_alpha(request: Request, req: AlphaEvaluateRequest):
     from agent.tools.alpha import evaluate_alpha_factors
-    return await evaluate_alpha_factors(symbol, market, factor_set, top_n)
+    return await evaluate_alpha_factors(req.symbol, req.market, req.factor_set, req.top_n)
 
 
 @router.get("/health")

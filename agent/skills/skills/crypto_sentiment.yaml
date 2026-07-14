@@ -14,7 +14,7 @@ tool_params:
     symbol: "BTC"
   get_crypto_overview: {}
   get_crypto_top_coins:
-    limit: 10
+    top_n: 10
 tags:
   - crypto
   - sentiment

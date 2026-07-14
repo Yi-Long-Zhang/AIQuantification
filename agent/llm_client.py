@@ -5,14 +5,7 @@ from typing import Any
 
 import httpx
 
-from .config import settings
-
-LLM_PROVIDERS: dict[str, dict[str, Any]] = {
-    "deepseek": {"base_url": "https://api.deepseek.com", "models": ["deepseek-chat", "deepseek-reasoner"]},
-    "openai": {"base_url": "https://api.openai.com/v1", "models": ["gpt-4o", "gpt-4o-mini", "o3-mini"]},
-    "qwen": {"base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1", "models": ["qwen-plus", "qwen-max", "qwen-turbo"]},
-    "gemini": {"base_url": "https://generativelanguage.googleapis.com/v1beta/openai", "models": ["gemini-2.0-flash", "gemini-2.5-pro"]},
-}
+from .config import LLM_PROVIDERS, settings
 
 
 class LLMClient:

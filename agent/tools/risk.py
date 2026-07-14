@@ -1,3 +1,9 @@
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+
+from .market_data import get_klines, get_stock_quote
 from .registry import tool
 
 
@@ -21,7 +27,6 @@ async def calculate_position_size(
     win_rate: float = 0.5,
     risk_per_trade: float = 0.02,
 ) -> dict:
-    from .market_data import get_stock_quote
     quote = await get_stock_quote(symbol, market)
     price = quote.get("price")
 
@@ -63,10 +68,6 @@ async def calculate_position_size(
     },
 )
 async def assess_portfolio_risk(symbols: list[str], market: str = "us_stock") -> dict:
-    from .market_data import get_klines
-    import pandas as pd
-    import numpy as np
-
     returns_dict = {}
     errors = []
 

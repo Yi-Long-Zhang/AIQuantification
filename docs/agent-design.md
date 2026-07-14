@@ -86,19 +86,30 @@ Agent 调用工具时：
 result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 ```
 
-### 工具列表（共 13 个）
+### 工具列表（共 21 个）
 
 | 文件 | 工具 | 用途 |
 |------|------|------|
 | market_data.py | `get_stock_quote` | 实时报价（yfinance） |
-| market_data.py | `get_klines` | 美股 K 线（yfinance） |
+| market_data.py | `get_klines` | K 线数据（自动切换 US/CN/HK/Crypto） |
 | market_data.py | `get_cn_klines` | A 股 K 线（akshare） |
 | market_data.py | `get_market_overview` | 市场总览 |
-| technical.py | `calculate_indicators` | 技术指标（原生实现） |
-| backtest.py | `run_backtest` | 回测策略 |
+| hk_stock.py | `get_hk_klines` | 港股 K 线（AKShare） |
+| hk_stock.py | `get_hk_realtime` | 港股实时行情 |
+| hk_stock.py | `get_hk_index` | 港股指数（恒指/恒生科技） |
+| hk_stock.py | `get_hk_flow` | 南向/北向资金流 |
+| crypto.py | `get_crypto_klines` | 加密货币 K 线（CCXT → yfinance → CoinGecko） |
+| crypto.py | `get_crypto_realtime` | 加密货币实时行情 |
+| crypto.py | `get_crypto_orderbook` | 买五卖五盘口 |
+| crypto.py | `get_crypto_overview` | 加密货币全市场概览 |
+| technical.py | `calculate_indicators` | 技术指标（SMA/EMA/RSI/MACD/BB/ATR/Stoch/ADX） |
+| technical.py | `calculate_factor` | 量化因子（动量/波动率/量比/价格/SMA比） |
+| backtest.py | `run_backtest` | 回测策略（支持滑点/手续费） |
 | backtest.py | `compare_strategies` | 策略对比 |
-| risk.py | `calculate_position_size` | 仓位计算（Kelly） |
-| risk.py | `assess_portfolio_risk` | 组合风险（VaR/CVaR） |
+| backtest.py | `monte_carlo_test` | Monte Carlo 置换检验 |
+| backtest.py | `walk_forward_test` | Walk-Forward 滚动窗口回测 |
+| risk.py | `calculate_position_size` | 仓位计算（Kelly + 风险预算） |
+| risk.py | `assess_portfolio_risk` | 组合风险（相关性/波动率） |
 | news.py | `get_stock_news` | 股票新闻 |
 | news.py | `analyze_sentiment` | 情绪分析（Fear & Greed/VIX） |
 | constitution.py | `check_constitution` | 合规检查 |
@@ -116,7 +127,7 @@ result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 
 ## 策略系统
 
-`agent/strategies/registry.py` 注册 4 个内置策略：
+`agent/strategies/registry.py` 注册 8 个内置策略：
 
 | 策略 | 逻辑 |
 |------|------|
@@ -124,5 +135,9 @@ result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 | macd | MACD 信号线交叉 |
 | rsi | RSI 超买超卖 |
 | bollinger | 布林带突破 |
+| ichimoku | 一目均衡表（转换线/基准线/云带） |
+| smc | Smart Money Concepts（订单块/流动性扫荡） |
+| multi_factor | 多因子评分（动量+波动率+成交量） |
+| crypto_funding | 加密货币资金费率套利 |
 
 所有策略继承自 `Strategy` ABC（`agent/strategies/base.py`），必须实现 `generate_signals(df)` 方法。

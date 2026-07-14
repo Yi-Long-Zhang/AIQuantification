@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -56,7 +58,7 @@ class AgentMemory:
         self._conn.commit()
 
     def create_session(self, session_id: str) -> None:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         self._conn.execute(
             "INSERT OR IGNORE INTO sessions (session_id, created_at, updated_at) VALUES (?, ?, ?)",
             (session_id, now, now),
@@ -64,7 +66,7 @@ class AgentMemory:
         self._conn.commit()
 
     def save_message(self, session_id: str, role: str, content: str, metadata: dict | None = None) -> None:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         self._conn.execute(
             "INSERT INTO messages (session_id, role, content, metadata, created_at) VALUES (?, ?, ?, ?, ?)",
             (session_id, role, content, json.dumps(metadata) if metadata else None, now),
@@ -92,7 +94,7 @@ class AgentMemory:
 
     def save_trade(self, session_id: str, symbol: str, direction: str, confidence: float,
                    entry_price: float | None, reason: str) -> int:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         cur = self._conn.execute(
             "INSERT INTO trades (session_id, symbol, direction, confidence, entry_price, reason, opened_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?)",
@@ -102,7 +104,7 @@ class AgentMemory:
         return cur.lastrowid
 
     def save_knowledge(self, market: str, symbol: str, key: str, value: str) -> None:
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(timezone.utc).isoformat()
         self._conn.execute(
             "INSERT INTO knowledge (market, symbol, key, value, created_at) VALUES (?, ?, ?, ?, ?)",
             (market, symbol, key, value, now),

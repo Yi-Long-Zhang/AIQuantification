@@ -3,8 +3,8 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
 
+from agent.config import settings
 from agent.core import QuantAgent
 from agent.strategies.registry import list_strategies
 from agent.tools.registry import get_tool_names
@@ -17,31 +17,20 @@ _agent: QuantAgent | None = None
 def get_agent() -> QuantAgent:
     global _agent
     if _agent is None:
-        _agent = QuantAgent(llm_provider="deepseek")
+        _agent = QuantAgent(llm_provider=settings.llm_provider)
     return _agent
 
 
-class AnalysisRequest(BaseModel):
-    query: str
-    session_id: str | None = None
-    market: str = "us_stock"
-
-
-class AnalysisResponse(BaseModel):
-    answer: str
-    session_id: str
-
-
-@router.post("/agent/chat", response_model=AnalysisResponse)
-async def agent_chat(req: AnalysisRequest):
+@router.post("/agent/chat", response_model=AgentResponse)
+async def agent_chat(req: AgentRequest):
     session_id = req.session_id or str(uuid.uuid4())
     agent = get_agent()
     answer = await agent.chat(req.query, session_id)
-    return AnalysisResponse(answer=answer, session_id=session_id)
+    return AgentResponse(answer=answer, session_id=session_id)
 
 
 @router.post("/agent/chat/stream")
-async def agent_chat_stream(req: AnalysisRequest):
+async def agent_chat_stream(req: AgentRequest):
     session_id = req.session_id or str(uuid.uuid4())
     agent = get_agent()
 

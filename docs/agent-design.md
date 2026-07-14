@@ -86,7 +86,7 @@ Agent 调用工具时：
 result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 ```
 
-### 工具列表（共 30 个）
+### 工具列表（共 33 个）
 
 | 文件 | 工具 | 用途 |
 |------|------|------|
@@ -111,7 +111,9 @@ result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 | crypto.py | `get_crypto_funding_rate` | 永续合约资金费率 |
 | crypto.py | `get_crypto_open_interest` | 合约持仓量 |
 | crypto.py | `calculate_crypto_indicators` | 链上指标（MVRV/NVT/NUPL） |
-| technical.py | `calculate_indicators` | 技术指标（SMA/EMA/RSI/MACD/BB/ATR/Stoch/ADX） |
+| alpha.py | `compute_alpha_factors` | 计算 Alpha158/Alpha101 因子 |
+| alpha.py | `evaluate_alpha_factors` | 评估因子有效性（IC/IR/Sharpe） |
+| alpha.py | `list_alpha_factors` | 列出可用因子 |
 | technical.py | `calculate_factor` | 量化因子（动量/波动率/量比/价格/SMA比） |
 | backtest.py | `run_backtest` | 回测策略（支持滑点/手续费） |
 | backtest.py | `compare_strategies` | 策略对比 |

@@ -94,6 +94,29 @@ POST /market/klines
 → K 线 DataFrame 数据
 ```
 
+### Alpha 因子列表
+
+```
+GET /alpha/factors?factor_set=all
+→ {"alpha158": [...], "alpha101": [...]}
+```
+
+### Alpha 因子计算
+
+```
+POST /alpha/compute
+请求：{"symbol": "AAPL", "market": "us_stock", "factor_set": "alpha158"}
+→ {"symbol": "AAPL", "factor_set": "alpha158", "data": [...], "rows": 5}
+```
+
+### Alpha 因子评估
+
+```
+POST /alpha/evaluate
+请求：{"symbol": "AAPL", "market": "us_stock", "factor_set": "alpha158", "top_n": 20}
+→ {"symbol": "AAPL", "top_factors": [...], "total_evaluated": 160}
+```
+
 ## 数据模型
 
 所有请求/响应模型定义在 `models/schemas.py`：

@@ -300,6 +300,24 @@ class AgentMemory:
                     content=knowledge, content_rowid=id
                 );
             """)
+            self._conn.executescript("""
+                CREATE TRIGGER IF NOT EXISTS messages_ai AFTER INSERT ON messages BEGIN
+                    INSERT INTO messages_fts(rowid, content, role, session_id, created_at)
+                    VALUES (new.id, new.content, new.role, new.session_id, new.created_at);
+                END;
+                CREATE TRIGGER IF NOT EXISTS messages_ad AFTER DELETE ON messages BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content, role, session_id, created_at)
+                    VALUES ('delete', old.id, old.content, old.role, old.session_id, old.created_at);
+                END;
+                CREATE TRIGGER IF NOT EXISTS knowledge_ai AFTER INSERT ON knowledge BEGIN
+                    INSERT INTO knowledge_fts(rowid, key, value, market, symbol)
+                    VALUES (new.id, new.key, new.value, new.market, new.symbol);
+                END;
+                CREATE TRIGGER IF NOT EXISTS knowledge_ad AFTER DELETE ON knowledge BEGIN
+                    INSERT INTO knowledge_fts(knowledge_fts, rowid, key, value, market, symbol)
+                    VALUES ('delete', old.id, old.key, old.value, old.market, old.symbol);
+                END;
+            """)
         except Exception:
             pass
         self._conn.commit()

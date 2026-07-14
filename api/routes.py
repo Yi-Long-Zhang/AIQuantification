@@ -65,12 +65,14 @@ async def agent_chat_stream(request: Request, req: AgentRequest):
 
 
 @router.get("/agent/tools")
-async def list_tools():
+@limiter.limit("30/minute")
+async def list_tools(request: Request):
     return {"tools": get_tool_names(), "count": len(get_tool_names())}
 
 
 @router.get("/strategies")
-async def get_strategies():
+@limiter.limit("30/minute")
+async def get_strategies(request: Request):
     return {"strategies": list_strategies()}
 
 

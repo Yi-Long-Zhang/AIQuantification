@@ -44,7 +44,7 @@ class Settings:
     def _load_file(self, path: str):
         if yaml is None:
             raise ImportError("PyYAML is required. Install with: uv pip install pyyaml")
-        with open(path) as f:
+        with open(path, encoding="utf-8") as f:
             self._raw = yaml.safe_load(f) or {}
 
     @property

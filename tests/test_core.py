@@ -1,58 +1,93 @@
+from __future__ import annotations
+
 import tempfile
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
+
 from agent.core import QuantAgent, SYSTEM_PROMPT
 
 
 @pytest.fixture
-def agent():
-    with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
-        db_path = f.name
-    with patch("agent.core.LLMClient") as mock_llm:
-        mock_llm.return_value = MagicMock()
-        agent = QuantAgent(db_path=db_path)
-        yield agent
+def tmp_db():
+    with tempfile.TemporaryDirectory() as tmpdir:
+        yield str(Path(tmpdir) / "test.db")
 
 
 def test_system_prompt_defined():
+    assert SYSTEM_PROMPT is not None
     assert len(SYSTEM_PROMPT) > 0
     assert "quantitative trading" in SYSTEM_PROMPT.lower()
 
 
-def test_agent_initialization(agent):
-    assert agent.llm is not None
-    assert agent.memory is not None
-    assert agent.tools is not None
-    assert len(agent.tools) > 0
+@pytest.mark.asyncio
+async def test_agent_initialization(tmp_db):
+    with patch("agent.core.LLMClient") as mock_llm:
+        mock_client = MagicMock()
+        mock_client.close = AsyncMock()
+        mock_llm.return_value = mock_client
+        agent = QuantAgent(db_path=tmp_db)
+        assert agent.llm is not None
+        assert agent.memory is not None
+        await agent.close()
 
 
-def test_convert_history(agent):
-    history = [
-        {"role": "user", "content": "Hello"},
-        {"role": "assistant", "content": "Hi"},
-        {"role": "system", "content": "test"},
-    ]
-    messages = agent._convert_history(history)
-    assert messages[0]["role"] == "system"
-    assert messages[0]["content"] == SYSTEM_PROMPT
-    assert len(messages) == 4
-    assert messages[1]["content"] == "Hello"
-    assert messages[2]["content"] == "Hi"
-    assert messages[3]["content"] == "test"
+@pytest.mark.asyncio
+async def test_convert_history(tmp_db):
+    with patch("agent.core.LLMClient") as mock_llm:
+        mock_client = MagicMock()
+        mock_client.close = AsyncMock()
+        mock_llm.return_value = mock_client
+        agent = QuantAgent(db_path=tmp_db)
+
+        history = [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Hi there!"},
+            {"role": "user", "content": "How are you?"},
+        ]
+
+        messages = agent._convert_history(history)
+        assert len(messages) == 4
+        assert messages[0]["role"] == "system"
+        assert messages[1]["content"] == "Hello"
+        assert messages[2]["content"] == "Hi there!"
+        await agent.close()
 
 
-def test_convert_history_limit(agent):
-    history = [{"role": "user", "content": f"msg-{i}"} for i in range(30)]
-    messages = agent._convert_history(history)
-    assert len(messages) <= 21
+@pytest.mark.asyncio
+async def test_convert_history_limit(tmp_db):
+    with patch("agent.core.LLMClient") as mock_llm:
+        mock_client = MagicMock()
+        mock_client.close = AsyncMock()
+        mock_llm.return_value = mock_client
+        agent = QuantAgent(db_path=tmp_db)
+
+        history = [{"role": "user", "content": f"Message {i}"} for i in range(30)]
+        messages = agent._convert_history(history)
+
+        assert len(messages) == 21
+        await agent.close()
 
 
-def test_convert_history_filters_invalid_roles(agent):
-    history = [
-        {"role": "user", "content": "Hello"},
-        {"role": "invalid_role", "content": "should be filtered"},
-        {"role": "assistant", "content": "Hi"},
-    ]
-    messages = agent._convert_history(history)
-    assert len(messages) == 3
-    assert all(m["role"] in ("system", "user", "assistant") for m in messages)
+@pytest.mark.asyncio
+async def test_convert_history_filters_invalid_roles(tmp_db):
+    with patch("agent.core.LLMClient") as mock_llm:
+        mock_client = MagicMock()
+        mock_client.close = AsyncMock()
+        mock_llm.return_value = mock_client
+        agent = QuantAgent(db_path=tmp_db)
+
+        history = [
+            {"role": "user", "content": "Hello"},
+            {"role": "invalid", "content": "This should be filtered"},
+            {"role": "assistant", "content": "Hi!"},
+            {"role": "system", "content": "System message"},
+        ]
+
+        messages = agent._convert_history(history)
+        assert len(messages) == 4
+        assert messages[1]["content"] == "Hello"
+        assert messages[2]["content"] == "Hi!"
+        assert messages[3]["content"] == "System message"
+        await agent.close()

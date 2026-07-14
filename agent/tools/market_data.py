@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 
@@ -82,14 +83,18 @@ def _df_to_records(df: pd.DataFrame, max_rows: int = 500) -> list[dict]:
 async def _yfinance_klines(symbol: str, interval: str, period: str) -> list[dict] | None:
     try:
         import yfinance as yf
-        sym = _get_symbol_in_market(symbol, "us_stock")
-        ticker = yf.Ticker(sym)
-        df = ticker.history(period=period, interval=interval)
-        if df.empty:
-            return None
-        df = df.reset_index()
-        df = _normalize_klines_df(df)
-        return _df_to_records(df)
+
+        def _fetch():
+            sym = _get_symbol_in_market(symbol, "us_stock")
+            ticker = yf.Ticker(sym)
+            df = ticker.history(period=period, interval=interval)
+            if df.empty:
+                return None
+            df = df.reset_index()
+            df = _normalize_klines_df(df)
+            return _df_to_records(df)
+
+        return await asyncio.to_thread(_fetch)
     except Exception as e:
         logger.warning("yfinance US failed for %s: %s", symbol, e)
         return None
@@ -102,15 +107,19 @@ async def _yfinance_klines(symbol: str, interval: str, period: str) -> list[dict
 async def _akshare_cn_klines(symbol: str, interval: str, period: str) -> list[dict] | None:
     try:
         import akshare as ak
-        freq_map = {"daily": "daily", "1d": "daily", "weekly": "weekly", "1wk": "weekly",
-                     "monthly": "monthly", "1mo": "monthly"}
-        freq = freq_map.get(interval, "daily")
-        start = _get_start_date(period)
-        df = ak.stock_zh_a_hist(symbol=symbol, period=freq, start_date=start, adjust="qfq")
-        if df.empty:
-            return None
-        df = _normalize_klines_df(df)
-        return _df_to_records(df)
+
+        def _fetch():
+            freq_map = {"daily": "daily", "1d": "daily", "weekly": "weekly", "1wk": "weekly",
+                         "monthly": "monthly", "1mo": "monthly"}
+            freq = freq_map.get(interval, "daily")
+            start = _get_start_date(period)
+            df = ak.stock_zh_a_hist(symbol=symbol, period=freq, start_date=start, adjust="qfq")
+            if df.empty:
+                return None
+            df = _normalize_klines_df(df)
+            return _df_to_records(df)
+
+        return await asyncio.to_thread(_fetch)
     except Exception as e:
         logger.warning("akshare CN failed for %s: %s", symbol, e)
         return None
@@ -159,19 +168,24 @@ async def get_stock_quote(symbol: str, market: str = "us_stock") -> dict:
     if market == "crypto":
         from .crypto import get_crypto_realtime
         return await get_crypto_realtime(symbol)
+
     import yfinance as yf
-    sym = _get_symbol_in_market(symbol, market)
-    ticker = yf.Ticker(sym)
-    info = ticker.info
-    return {
-        "symbol": symbol,
-        "price": info.get("currentPrice") or info.get("regularMarketPrice"),
-        "change": info.get("regularMarketChange"),
-        "change_percent": info.get("regularMarketChangePercent"),
-        "volume": info.get("volume") or info.get("regularMarketVolume"),
-        "market_cap": info.get("marketCap"),
-        "name": info.get("longName") or info.get("shortName"),
-    }
+
+    def _fetch():
+        sym = _get_symbol_in_market(symbol, market)
+        ticker = yf.Ticker(sym)
+        info = ticker.info
+        return {
+            "symbol": symbol,
+            "price": info.get("currentPrice") or info.get("regularMarketPrice"),
+            "change": info.get("regularMarketChange"),
+            "change_percent": info.get("regularMarketChangePercent"),
+            "volume": info.get("volume") or info.get("regularMarketVolume"),
+            "market_cap": info.get("marketCap"),
+            "name": info.get("longName") or info.get("shortName"),
+        }
+
+    return await asyncio.to_thread(_fetch)
 
 
 @tool(
@@ -225,18 +239,23 @@ async def get_market_overview(market: str = "us_stock") -> list[dict]:
         "hk_stock": ["^HSI", "^HSTECH"],
     }
     syms = indices.get(market, indices["us_stock"])
+
     import yfinance as yf
-    results = []
-    for sym in syms:
-        try:
-            ticker = yf.Ticker(sym)
-            info = ticker.info
-            results.append({
-                "symbol": sym,
-                "name": info.get("shortName") or info.get("symbol"),
-                "price": info.get("regularMarketPrice"),
-                "change_percent": info.get("regularMarketChangePercent"),
-            })
-        except Exception:
-            continue
-    return results
+
+    def _fetch():
+        results = []
+        for sym in syms:
+            try:
+                ticker = yf.Ticker(sym)
+                info = ticker.info
+                results.append({
+                    "symbol": sym,
+                    "name": info.get("shortName") or info.get("symbol"),
+                    "price": info.get("regularMarketPrice"),
+                    "change_percent": info.get("regularMarketChangePercent"),
+                })
+            except Exception:
+                continue
+        return results
+
+    return await asyncio.to_thread(_fetch)

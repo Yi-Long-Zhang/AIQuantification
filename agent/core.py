@@ -6,7 +6,7 @@ from typing import Any
 from models.schemas import AgentMessage
 from .config import settings
 from .llm_client import LLMClient
-from .memory import AgentMemory
+from .memory import AsyncAgentMemory
 from .tools.registry import get_tool_definitions, execute_tool
 
 
@@ -46,7 +46,7 @@ class QuantAgent:
         db_path: str | None = None,
     ):
         self.llm = LLMClient(provider=llm_provider, model=llm_model)
-        self.memory = AgentMemory(db_path=db_path or settings.memory_db_path)
+        self.memory = AsyncAgentMemory(db_path=db_path or settings.memory_db_path)
         self.tools = get_tool_definitions()
 
     def _convert_history(self, history: list[dict]) -> list[dict[str, Any]]:
@@ -59,14 +59,14 @@ class QuantAgent:
         return messages
 
     async def chat(self, query: str, session_id: str) -> str:
-        self.memory.create_session(session_id)
-        history = self.memory.get_history(session_id)
+        await self.memory.create_session(session_id)
+        history = await self.memory.get_history(session_id)
         messages = self._convert_history(history)
         messages.append({"role": "user", "content": query})
-        self.memory.save_message(session_id, "user", query)
+        await self.memory.save_message(session_id, "user", query)
 
         response = await self._run_loop(messages, session_id)
-        self.memory.save_message(session_id, "assistant", response)
+        await self.memory.save_message(session_id, "assistant", response)
         return response
 
     async def _run_loop(self, messages: list[dict], session_id: str, max_iterations: int = 10) -> str:
@@ -103,17 +103,17 @@ class QuantAgent:
                 })
 
                 meta = {"tool": func_name, "args": args}
-                self.memory.save_message(session_id, "assistant",
-                                          f"[Tool: {func_name}] {result_str[:500]}", metadata=meta)
+                await self.memory.save_message(session_id, "assistant",
+                                           f"[Tool: {func_name}] {result_str[:500]}", metadata=meta)
 
         return "I've completed my analysis. The maximum number of tool interactions has been reached. Here's what I found based on the data collected so far."
 
     async def stream_chat(self, query: str, session_id: str):
-        self.memory.create_session(session_id)
-        history = self.memory.get_history(session_id)
+        await self.memory.create_session(session_id)
+        history = await self.memory.get_history(session_id)
         messages = self._convert_history(history)
         messages.append({"role": "user", "content": query})
-        self.memory.save_message(session_id, "user", query)
+        await self.memory.save_message(session_id, "user", query)
 
         accumulated = ""
         tool_calls_buffer: list[dict] = []
@@ -172,8 +172,8 @@ class QuantAgent:
                 })
 
                 meta = {"tool": func_name, "args": args}
-                self.memory.save_message(session_id, "assistant",
-                                          f"[Tool: {func_name}] {result_str[:500]}", metadata=meta)
+                await self.memory.save_message(session_id, "assistant",
+                                           f"[Tool: {func_name}] {result_str[:500]}", metadata=meta)
 
             final_accumulated = ""
             async for chunk in self.llm.chat_stream(messages, tools=self.tools):
@@ -186,8 +186,8 @@ class QuantAgent:
             accumulated = (accumulated + "\n\n" + final_accumulated).strip() if final_accumulated else accumulated
 
         if accumulated:
-            self.memory.save_message(session_id, "assistant", accumulated)
+            await self.memory.save_message(session_id, "assistant", accumulated)
 
     async def close(self):
         await self.llm.close()
-        self.memory.close()
+        await self.memory.close()

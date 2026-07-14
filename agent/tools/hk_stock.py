@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import logging
 
 import pandas as pd
@@ -23,14 +24,18 @@ logger = logging.getLogger(__name__)
 async def _yfinance_hk_klines(symbol: str, interval: str, period: str) -> list[dict] | None:
     try:
         import yfinance as yf
-        sym = _get_symbol_in_market(symbol, "hk_stock")
-        ticker = yf.Ticker(sym)
-        df = ticker.history(period=period, interval=interval)
-        if df.empty:
-            return None
-        df = df.reset_index()
-        df = _normalize_klines_df(df)
-        return _df_to_records(df)
+
+        def _fetch():
+            sym = _get_symbol_in_market(symbol, "hk_stock")
+            ticker = yf.Ticker(sym)
+            df = ticker.history(period=period, interval=interval)
+            if df.empty:
+                return None
+            df = df.reset_index()
+            df = _normalize_klines_df(df)
+            return _df_to_records(df)
+
+        return await asyncio.to_thread(_fetch)
     except Exception as e:
         logger.warning("yfinance HK failed for %s: %s", symbol, e)
         return None
@@ -39,17 +44,21 @@ async def _yfinance_hk_klines(symbol: str, interval: str, period: str) -> list[d
 async def _akshare_hk_klines(symbol: str, interval: str, period: str) -> list[dict] | None:
     try:
         import akshare as ak
-        code = symbol.replace(".HK", "").zfill(5)
-        freq_map = {"daily": "daily", "1d": "daily", "weekly": "weekly", "1wk": "weekly",
-                     "monthly": "monthly", "1mo": "monthly"}
-        freq = freq_map.get(interval, "daily")
-        start = _get_start_date(period)
-        df = ak.stock_hk_hist(symbol=code, period=freq, start_date=start, adjust="qfq")
-        if df.empty:
-            return None
-        df = _normalize_klines_df(df)
-        df = _validate_ohlcv(df)
-        return _df_to_records(df)
+
+        def _fetch():
+            code = symbol.replace(".HK", "").zfill(5)
+            freq_map = {"daily": "daily", "1d": "daily", "weekly": "weekly", "1wk": "weekly",
+                         "monthly": "monthly", "1mo": "monthly"}
+            freq = freq_map.get(interval, "daily")
+            start = _get_start_date(period)
+            df = ak.stock_hk_hist(symbol=code, period=freq, start_date=start, adjust="qfq")
+            if df.empty:
+                return None
+            df = _normalize_klines_df(df)
+            df = _validate_ohlcv(df)
+            return _df_to_records(df)
+
+        return await asyncio.to_thread(_fetch)
     except Exception as e:
         logger.warning("akshare HK failed for %s: %s", symbol, e)
         return None
@@ -94,20 +103,24 @@ async def get_hk_klines(symbol: str, interval: str = "daily", period: str = "1y"
 async def get_hk_realtime(symbols: list[str] | None = None) -> list[dict]:
     try:
         import akshare as ak
-        df = ak.stock_hk_spot_em()
-        if symbols:
-            codes = [s.replace(".HK", "").zfill(5) for s in symbols]
-            df = df[df["代码"].isin(codes)]
-        result = []
-        for _, r in df.iterrows():
-            result.append({
-                "symbol": r.get("代码"), "name": r.get("名称"),
-                "price": r.get("最新价"), "change": r.get("涨跌额"),
-                "change_percent": r.get("涨跌幅"), "volume": r.get("成交量"),
-                "turnover": r.get("成交额"), "pe": r.get("市盈率"),
-                "market_cap": r.get("总市值"),
-            })
-        return result[:50]
+
+        def _fetch():
+            df = ak.stock_hk_spot_em()
+            if symbols:
+                codes = [s.replace(".HK", "").zfill(5) for s in symbols]
+                df = df[df["代码"].isin(codes)]
+            result = []
+            for _, r in df.iterrows():
+                result.append({
+                    "symbol": r.get("代码"), "name": r.get("名称"),
+                    "price": r.get("最新价"), "change": r.get("涨跌额"),
+                    "change_percent": r.get("涨跌幅"), "volume": r.get("成交量"),
+                    "turnover": r.get("成交额"), "pe": r.get("市盈率"),
+                    "market_cap": r.get("总市值"),
+                })
+            return result[:50]
+
+        return await asyncio.to_thread(_fetch)
     except Exception as e:
         return [{"error": str(e)}]
 
@@ -119,20 +132,25 @@ async def get_hk_realtime(symbols: list[str] | None = None) -> list[dict]:
 )
 async def get_hk_index() -> list[dict]:
     indices = {"^HSI": "恒生指数", "^HSTECH": "恒生科技指数"}
+
     import yfinance as yf
-    results = []
-    for sym, name in indices.items():
-        try:
-            ticker = yf.Ticker(sym)
-            info = ticker.info
-            results.append({
-                "symbol": sym, "name": name,
-                "price": info.get("regularMarketPrice"),
-                "change_percent": info.get("regularMarketChangePercent"),
-            })
-        except Exception:
-            continue
-    return results
+
+    def _fetch():
+        results = []
+        for sym, name in indices.items():
+            try:
+                ticker = yf.Ticker(sym)
+                info = ticker.info
+                results.append({
+                    "symbol": sym, "name": name,
+                    "price": info.get("regularMarketPrice"),
+                    "change_percent": info.get("regularMarketChangePercent"),
+                })
+            except Exception:
+                continue
+        return results
+
+    return await asyncio.to_thread(_fetch)
 
 
 @tool(
@@ -145,15 +163,19 @@ async def get_hk_index() -> list[dict]:
 async def get_hk_flow(direction: str = "both") -> dict:
     try:
         import akshare as ak
-        result = {}
-        if direction in ("northbound", "both"):
-            df_n = ak.stock_hsgt_hist_em(symbol="北向资金")
-            if not df_n.empty:
-                result["northbound"] = df_n.tail(10).to_dict(orient="records")
-        if direction in ("southbound", "both"):
-            df_s = ak.stock_hsgt_hist_em(symbol="南向资金")
-            if not df_s.empty:
-                result["southbound"] = df_s.tail(10).to_dict(orient="records")
-        return result
+
+        def _fetch():
+            result = {}
+            if direction in ("northbound", "both"):
+                df_n = ak.stock_hsgt_hist_em(symbol="北向资金")
+                if not df_n.empty:
+                    result["northbound"] = df_n.tail(10).to_dict(orient="records")
+            if direction in ("southbound", "both"):
+                df_s = ak.stock_hsgt_hist_em(symbol="南向资金")
+                if not df_s.empty:
+                    result["southbound"] = df_s.tail(10).to_dict(orient="records")
+            return result
+
+        return await asyncio.to_thread(_fetch)
     except Exception as e:
         return {"error": str(e)}

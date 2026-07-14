@@ -97,6 +97,10 @@ class Settings:
         return os.path.expanduser(self._raw.get("memory", {}).get("db_path", "~/.aiquantification/memory.db"))
 
     @property
+    def cors_origins(self) -> list[str]:
+        return self._raw.get("server", {}).get("cors_origins", ["http://localhost:8000", "http://127.0.0.1:8000"])
+
+    @property
     def server_host(self) -> str:
         return self._raw.get("server", {}).get("host", "0.0.0.0")
 

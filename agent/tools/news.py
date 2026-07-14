@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from .registry import tool
 
 
@@ -14,22 +16,26 @@ from .registry import tool
 )
 async def get_stock_news(symbol: str, market: str = "us_stock", max_news: int = 5) -> list[dict]:
     import yfinance as yf
-    try:
-        ticker = yf.Ticker(symbol)
-        news = ticker.news
-        if not news:
-            return []
-        results = []
-        for article in news[:max_news]:
-            results.append({
-                "title": article.get("title", ""),
-                "publisher": article.get("publisher", ""),
-                "link": article.get("link", ""),
-                "type": article.get("type", ""),
-            })
-        return results
-    except Exception as e:
-        return [{"error": str(e)}]
+
+    def _fetch():
+        try:
+            ticker = yf.Ticker(symbol)
+            news = ticker.news
+            if not news:
+                return []
+            results = []
+            for article in news[:max_news]:
+                results.append({
+                    "title": article.get("title", ""),
+                    "publisher": article.get("publisher", ""),
+                    "link": article.get("link", ""),
+                    "type": article.get("type", ""),
+                })
+            return results
+        except Exception as e:
+            return [{"error": str(e)}]
+
+    return await asyncio.to_thread(_fetch)
 
 
 @tool(
@@ -57,23 +63,27 @@ async def analyze_sentiment(market: str = "crypto") -> dict:
             result["classification"] = "Unknown"
 
     elif market == "us_stock":
-        try:
-            from yfinance import ticker as yft
-            cboe = yft.Ticker("^VIX")
-            info = cboe.info
-            vix = info.get("regularMarketPrice")
-            result["vix"] = vix
-            if vix is not None:
-                if vix < 15:
-                    result["classification"] = "Low Fear"
-                elif vix < 25:
-                    result["classification"] = "Moderate"
-                elif vix < 35:
-                    result["classification"] = "High Fear"
-                else:
-                    result["classification"] = "Extreme Fear"
-        except Exception:
-            result["vix"] = None
-            result["classification"] = "Unknown"
+        from yfinance import ticker as yft
+
+        def _fetch():
+            try:
+                cboe = yft.Ticker("^VIX")
+                info = cboe.info
+                vix = info.get("regularMarketPrice")
+                result["vix"] = vix
+                if vix is not None:
+                    if vix < 15:
+                        result["classification"] = "Low Fear"
+                    elif vix < 25:
+                        result["classification"] = "Moderate"
+                    elif vix < 35:
+                        result["classification"] = "High Fear"
+                    else:
+                        result["classification"] = "Extreme Fear"
+            except Exception:
+                result["vix"] = None
+                result["classification"] = "Unknown"
+
+        await asyncio.to_thread(_fetch)
 
     return result

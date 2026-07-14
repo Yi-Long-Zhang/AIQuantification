@@ -1,8 +1,10 @@
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from agent.config import settings
 from agent.core import QuantAgent
@@ -12,6 +14,7 @@ from models.schemas import AgentRequest, AgentResponse, BacktestRequest, Backtes
 
 router = APIRouter()
 _agent: QuantAgent | None = None
+limiter = Limiter(key_func=get_remote_address)
 
 
 def get_agent() -> QuantAgent:
@@ -22,7 +25,8 @@ def get_agent() -> QuantAgent:
 
 
 @router.post("/agent/chat", response_model=AgentResponse)
-async def agent_chat(req: AgentRequest):
+@limiter.limit("10/minute")
+async def agent_chat(request: Request, req: AgentRequest):
     session_id = req.session_id or str(uuid.uuid4())
     agent = get_agent()
     answer = await agent.chat(req.query, session_id)
@@ -30,7 +34,8 @@ async def agent_chat(req: AgentRequest):
 
 
 @router.post("/agent/chat/stream")
-async def agent_chat_stream(req: AgentRequest):
+@limiter.limit("10/minute")
+async def agent_chat_stream(request: Request, req: AgentRequest):
     session_id = req.session_id or str(uuid.uuid4())
     agent = get_agent()
 

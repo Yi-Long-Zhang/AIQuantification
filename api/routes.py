@@ -114,6 +114,24 @@ async def market_klines(req: MarketDataRequest):
     return await get_klines(req.symbol, req.market, req.interval, req.period)
 
 
+@router.get("/alpha/factors")
+async def list_alpha_factors(factor_set: str = "all"):
+    from agent.tools.alpha import list_alpha_factors as list_factors
+    return await list_factors(factor_set)
+
+
+@router.post("/alpha/compute")
+async def compute_alpha(symbol: str, market: str = "us_stock", factor_set: str = "alpha158"):
+    from agent.tools.alpha import compute_alpha_factors
+    return await compute_alpha_factors(symbol, market, factor_set)
+
+
+@router.post("/alpha/evaluate")
+async def evaluate_alpha(symbol: str, market: str = "us_stock", factor_set: str = "alpha158", top_n: int = 20):
+    from agent.tools.alpha import evaluate_alpha_factors
+    return await evaluate_alpha_factors(symbol, market, factor_set, top_n)
+
+
 @router.get("/health")
 async def health():
     return {"status": "ok", "agent": "QuantAgent"}

@@ -1,4 +1,5 @@
 from . import (
+    alpha,
     backtest,
     constitution,
     crypto,
@@ -10,6 +11,7 @@ from . import (
 )
 
 __all__ = [
+    "alpha",
     "backtest",
     "constitution",
     "crypto",

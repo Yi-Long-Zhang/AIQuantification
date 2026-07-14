@@ -179,3 +179,75 @@ async def get_hk_flow(direction: str = "both") -> dict:
         return await asyncio.to_thread(_fetch)
     except Exception as e:
         return {"error": str(e)}
+
+
+@tool(
+    name="get_hk_fund_flow",
+    description="获取港股个股资金流向（主力/散户资金）",
+    parameters={
+        "symbol": {"type": "string", "description": "港股代码，如 00700、09988"},
+    },
+)
+async def get_hk_fund_flow(symbol: str) -> dict:
+    try:
+        import akshare as ak
+
+        def _fetch():
+            code = symbol.replace(".HK", "").zfill(5)
+            df = ak.stock_hk_ggt_components_em(symbol=code)
+            if df is None or df.empty:
+                return {"error": f"No fund flow data for {symbol}"}
+            df = df.tail(10)
+            result = {
+                "symbol": symbol,
+                "records": [],
+            }
+            for _, r in df.iterrows():
+                result["records"].append({
+                    "date": r.get("日期"),
+                    "main_net_inflow": r.get("主力净流入"),
+                    "main_net_pct": r.get("主力净流入占比"),
+                    "super_large_net": r.get("超大单净流入"),
+                    "large_net": r.get("大单净流入"),
+                    "medium_net": r.get("中单净流入"),
+                    "small_net": r.get("小单净流入"),
+                })
+            return result
+
+        return await asyncio.to_thread(_fetch)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@tool(
+    name="get_hk_valuation",
+    description="获取港股估值数据（PE/PB/股息率）",
+    parameters={
+        "symbol": {"type": "string", "description": "港股代码，如 00700、09988"},
+    },
+)
+async def get_hk_valuation(symbol: str) -> dict:
+    try:
+        import akshare as ak
+
+        def _fetch():
+            code = symbol.replace(".HK", "").zfill(5)
+            df = ak.stock_hk_valuation_baidu(symbol=code, indicator="总市值", period="近一年")
+            if df is None or df.empty:
+                return {"error": f"No valuation data for {symbol}"}
+            latest = df.iloc[-1] if len(df) > 0 else {}
+            return {
+                "symbol": symbol,
+                "valuation": {
+                    "date": str(latest.get("日期", "")),
+                    "market_cap": latest.get("总市值"),
+                    "pe_ttm": latest.get("市盈率(TTM)"),
+                    "pb": latest.get("市净率"),
+                    "ps_ttm": latest.get("市销率(TTM)"),
+                },
+                "history": df.tail(20).to_dict(orient="records"),
+            }
+
+        return await asyncio.to_thread(_fetch)
+    except Exception as e:
+        return {"error": str(e)}

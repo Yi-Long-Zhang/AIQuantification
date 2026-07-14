@@ -86,7 +86,7 @@ Agent 调用工具时：
 result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 ```
 
-### 工具列表（共 21 个）
+### 工具列表（共 28 个）
 
 | 文件 | 工具 | 用途 |
 |------|------|------|
@@ -98,10 +98,17 @@ result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 | hk_stock.py | `get_hk_realtime` | 港股实时行情 |
 | hk_stock.py | `get_hk_index` | 港股指数（恒指/恒生科技） |
 | hk_stock.py | `get_hk_flow` | 南向/北向资金流 |
+| hk_stock.py | `get_hk_fund_flow` | 港股资金流向（机构/散户） |
+| hk_stock.py | `get_hk_valuation` | 港股估值（PE/PB/PS） |
 | crypto.py | `get_crypto_klines` | 加密货币 K 线（CCXT → yfinance → CoinGecko） |
 | crypto.py | `get_crypto_realtime` | 加密货币实时行情 |
 | crypto.py | `get_crypto_orderbook` | 买五卖五盘口 |
 | crypto.py | `get_crypto_overview` | 加密货币全市场概览 |
+| crypto.py | `get_crypto_fear_greed` | 恐惧贪婪指数 |
+| crypto.py | `get_crypto_top_coins` | 市值 Top N 排名 |
+| crypto.py | `get_crypto_funding_rate` | 永续合约资金费率 |
+| crypto.py | `get_crypto_open_interest` | 合约持仓量 |
+| crypto.py | `calculate_crypto_indicators` | 链上指标（MVRV/NVT/NUPL） |
 | technical.py | `calculate_indicators` | 技术指标（SMA/EMA/RSI/MACD/BB/ATR/Stoch/ADX） |
 | technical.py | `calculate_factor` | 量化因子（动量/波动率/量比/价格/SMA比） |
 | backtest.py | `run_backtest` | 回测策略（支持滑点/手续费） |

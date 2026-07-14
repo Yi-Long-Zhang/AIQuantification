@@ -232,3 +232,207 @@ async def get_crypto_overview() -> dict:
         return await asyncio.to_thread(_fetch)
     except Exception as e:
         return {"error": str(e)}
+
+
+@tool(
+    name="get_crypto_fear_greed",
+    description="获取加密货币恐惧贪婪指数（历史数据）",
+    parameters={
+        "days": {"type": "integer", "description": "历史天数，默认30", "default": 30},
+    },
+)
+async def get_crypto_fear_greed(days: int = 30) -> dict:
+    try:
+        import httpx
+
+        def _fetch():
+            resp = httpx.get(f"https://api.alternative.me/fng/?limit={days}", timeout=10)
+            data = resp.json()
+            if not data.get("data"):
+                return {"error": "No data available"}
+            records = []
+            for item in data["data"]:
+                records.append({
+                    "date": item.get("timestamp"),
+                    "value": int(item.get("value", 50)),
+                    "classification": item.get("value_classification", "Neutral"),
+                })
+            return {
+                "current": records[0] if records else None,
+                "history": records,
+                "average_30d": round(sum(r["value"] for r in records) / len(records), 1) if records else None,
+            }
+
+        return await asyncio.to_thread(_fetch)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@tool(
+    name="get_crypto_top_coins",
+    description="获取加密货币市值 Top N 排名",
+    parameters={
+        "top_n": {"type": "integer", "description": "返回数量，默认20", "default": 20},
+    },
+)
+async def get_crypto_top_coins(top_n: int = 20) -> dict:
+    try:
+        from pycoingecko import CoinGeckoAPI
+
+        def _fetch():
+            cg = CoinGeckoAPI()
+            coins = cg.get_coins_markets(
+                vs_currency="usd",
+                per_page=min(top_n, 100),
+                order="market_cap_desc",
+                price_change_percentage="1h,24h,7d",
+            )
+            result = []
+            for i, c in enumerate(coins or []):
+                result.append({
+                    "rank": i + 1,
+                    "symbol": c["symbol"].upper(),
+                    "name": c["name"],
+                    "price": c["current_price"],
+                    "market_cap": c["market_cap"],
+                    "market_cap_rank": c.get("market_cap_rank"),
+                    "volume_24h": c.get("total_volume"),
+                    "change_1h": c.get("price_change_percentage_1h_in_currency"),
+                    "change_24h": c.get("price_change_percentage_24h_in_currency"),
+                    "change_7d": c.get("price_change_percentage_7d_in_currency"),
+                    "ath": c.get("ath"),
+                    "ath_change_pct": c.get("ath_change_percentage"),
+                    "circulating_supply": c.get("circulating_supply"),
+                })
+            return {"coins": result, "count": len(result)}
+
+        return await asyncio.to_thread(_fetch)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@tool(
+    name="get_crypto_funding_rate",
+    description="获取加密货币永续合约资金费率",
+    parameters={
+        "symbol": {"type": "string", "description": "交易对，如 BTC、ETH"},
+        "exchange": {"type": "string", "description": "交易所: binance, okx, bybit", "default": "binance"},
+    },
+)
+async def get_crypto_funding_rate(symbol: str, exchange: str = "binance") -> dict:
+    try:
+        import ccxt
+
+        def _fetch():
+            exchange_class = getattr(ccxt, exchange, None)
+            if not exchange_class:
+                return {"error": f"Exchange {exchange} not found"}
+            ex = exchange_class({"enableRateLimit": True})
+            pair = symbol.upper()
+            if "/" not in pair:
+                pair = f"{pair}/USDT"
+            funding = ex.fetch_funding_rate(pair)
+            return {
+                "symbol": symbol,
+                "exchange": exchange,
+                "funding_rate": funding.get("fundingRate"),
+                "funding_timestamp": funding.get("fundingTimestamp"),
+                "next_funding_rate": funding.get("nextFundingRate"),
+                "next_funding_timestamp": funding.get("nextFundingTimestamp"),
+            }
+
+        return await asyncio.to_thread(_fetch)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@tool(
+    name="get_crypto_open_interest",
+    description="获取加密货币合约持仓量",
+    parameters={
+        "symbol": {"type": "string", "description": "交易对，如 BTC、ETH"},
+        "exchange": {"type": "string", "description": "交易所: binance, okx, bybit", "default": "binance"},
+    },
+)
+async def get_crypto_open_interest(symbol: str, exchange: str = "binance") -> dict:
+    try:
+        import ccxt
+
+        def _fetch():
+            exchange_class = getattr(ccxt, exchange, None)
+            if not exchange_class:
+                return {"error": f"Exchange {exchange} not found"}
+            ex = exchange_class({"enableRateLimit": True})
+            pair = symbol.upper()
+            if "/" not in pair:
+                pair = f"{pair}/USDT"
+            oi = ex.fetch_open_interest(pair)
+            return {
+                "symbol": symbol,
+                "exchange": exchange,
+                "open_interest": oi.get("openInterestAmount"),
+                "open_interest_value": oi.get("openInterestValue"),
+                "timestamp": oi.get("timestamp"),
+            }
+
+        return await asyncio.to_thread(_fetch)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@tool(
+    name="calculate_crypto_indicators",
+    description="计算加密货币链上指标（MVRV/NVT/NUPL）",
+    parameters={
+        "symbol": {"type": "string", "description": "币种代码，如 BTC、ETH"},
+    },
+)
+async def calculate_crypto_indicators(symbol: str) -> dict:
+    try:
+        from pycoingecko import CoinGeckoAPI
+
+        def _fetch():
+            cg = CoinGeckoAPI()
+            coin = symbol.upper().replace("-USD", "").replace("/USDT", "")
+            coin_id_map = {"BTC": "bitcoin", "ETH": "ethereum", "SOL": "solana",
+                            "BNB": "binancecoin", "XRP": "ripple", "DOGE": "dogecoin"}
+            coin_id = coin_id_map.get(coin, coin.lower())
+
+            market = cg.get_coin_market_chart_by_id(id=coin_id, vs_currency="usd", days=365)
+            prices = market.get("prices", [])
+            volumes = market.get("total_volumes", [])
+
+            if not prices or not volumes:
+                return {"error": "Insufficient data"}
+
+            df = pd.DataFrame(prices, columns=["timestamp", "price"])
+            df["volume"] = [v[1] for v in volumes]
+            df["date"] = pd.to_datetime(df["timestamp"], unit="ms")
+
+            current_price = df["price"].iloc[-1]
+            avg_price_200d = df["price"].tail(200).mean() if len(df) >= 200 else df["price"].mean()
+            avg_volume = df["volume"].tail(30).mean()
+
+            mvrv = current_price / avg_price_200d if avg_price_200d > 0 else None
+            nvt = current_price / (avg_volume / 1e9) if avg_volume > 0 else None
+
+            returns = df["price"].pct_change().dropna()
+            volatility_30d = returns.tail(30).std() * (365 ** 0.5) * 100
+
+            return {
+                "symbol": symbol,
+                "current_price": round(current_price, 2),
+                "mvrv_ratio": round(mvrv, 4) if mvrv else None,
+                "nvt_ratio": round(nvt, 2) if nvt else None,
+                "volatility_30d_pct": round(volatility_30d, 2),
+                "avg_price_200d": round(avg_price_200d, 2),
+                "price_vs_avg_200d_pct": round((current_price / avg_price_200d - 1) * 100, 2) if avg_price_200d > 0 else None,
+                "interpretation": {
+                    "mvrv": "overvalued" if mvrv and mvrv > 3.5 else "undervalued" if mvrv and mvrv < 1.0 else "fair",
+                    "volatility": "high" if volatility_30d > 80 else "medium" if volatility_30d > 40 else "low",
+                },
+            }
+
+        return await asyncio.to_thread(_fetch)
+    except Exception as e:
+        return {"error": str(e)}

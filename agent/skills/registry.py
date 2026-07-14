@@ -10,6 +10,7 @@ class Skill:
     name: str
     description: str
     tools: list[str] = field(default_factory=list)
+    tool_params: dict[str, dict[str, Any]] = field(default_factory=dict)
     prompt_template: str = ""
     tags: list[str] = field(default_factory=list)
 
@@ -18,6 +19,7 @@ class Skill:
             "name": self.name,
             "description": self.description,
             "tools": self.tools,
+            "tool_params": self.tool_params,
             "prompt_template": self.prompt_template,
             "tags": self.tags,
         }

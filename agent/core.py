@@ -21,6 +21,7 @@ Your capabilities:
 - Get market news and sentiment analysis
 - Calculate quant factors (momentum, volatility, etc.)
 - Use specialized analysis skills for comprehensive insights
+- Compute and evaluate Alpha101/Alpha158 factor models with IC, IR, turnover, and Sharpe metrics
 
 Decision-making process:
 1. First gather data using tools to cover at least 3 analysis dimensions
@@ -93,7 +94,8 @@ class QuantAgent:
         tool_results = {}
         for tool_name in skill.tools:
             try:
-                result = await execute_tool(tool_name)
+                params = skill.tool_params.get(tool_name, {})
+                result = await execute_tool(tool_name, **params)
                 tool_results[tool_name] = result
             except Exception as e:
                 tool_results[tool_name] = {"error": str(e)}

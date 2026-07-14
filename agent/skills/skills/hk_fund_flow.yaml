@@ -5,6 +5,15 @@ tools:
   - get_hk_fund_flow
   - get_hk_realtime
   - get_hk_index
+tool_params:
+  get_hk_flow:
+    market: "south"
+  get_hk_fund_flow:
+    symbol: "00700"
+  get_hk_realtime:
+    symbol: "00700"
+  get_hk_index:
+    index_code: "HSI"
 tags:
   - hk_stock
   - fund_flow

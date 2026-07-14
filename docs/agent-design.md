@@ -86,7 +86,7 @@ Agent 调用工具时：
 result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 ```
 
-### 工具列表（共 33 个）
+### 工具列表（共 35 个）
 
 | 文件 | 工具 | 用途 |
 |------|------|------|
@@ -115,6 +115,7 @@ result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
 | alpha.py | `evaluate_alpha_factors` | 评估因子有效性（IC/IR/Sharpe） |
 | alpha.py | `list_alpha_factors` | 列出可用因子 |
 | technical.py | `calculate_factor` | 量化因子（动量/波动率/量比/价格/SMA比） |
+| technical.py | `calculate_indicators` | 技术指标（SMA/EMA/RSI/MACD/布林带/ATR） |
 | backtest.py | `run_backtest` | 回测策略（支持滑点/手续费） |
 | backtest.py | `compare_strategies` | 策略对比 |
 | backtest.py | `monte_carlo_test` | Monte Carlo 置换检验 |

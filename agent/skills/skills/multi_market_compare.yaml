@@ -6,6 +6,15 @@ tools:
   - get_klines
   - get_sector_rotation
   - get_global_macro
+tool_params:
+  get_market_overview: {}
+  get_stock_quote:
+    symbol: "AAPL"
+  get_klines:
+    symbol: "AAPL"
+    period: "1d"
+  get_sector_rotation: {}
+  get_global_macro: {}
 tags:
   - multi_market
   - comparison

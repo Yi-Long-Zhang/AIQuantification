@@ -90,6 +90,14 @@ class AsyncAgentMemory:
                 END
             """)
             await conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content, role, session_id, created_at)
+                    VALUES ('delete', old.id, old.content, old.role, old.session_id, old.created_at);
+                    INSERT INTO messages_fts(rowid, content, role, session_id, created_at)
+                    VALUES (new.id, new.content, new.role, new.session_id, new.created_at);
+                END
+            """)
+            await conn.execute("""
                 CREATE TRIGGER IF NOT EXISTS knowledge_ai AFTER INSERT ON knowledge BEGIN
                     INSERT INTO knowledge_fts(rowid, key, value, market, symbol)
                     VALUES (new.id, new.key, new.value, new.market, new.symbol);
@@ -99,6 +107,14 @@ class AsyncAgentMemory:
                 CREATE TRIGGER IF NOT EXISTS knowledge_ad AFTER DELETE ON knowledge BEGIN
                     INSERT INTO knowledge_fts(knowledge_fts, rowid, key, value, market, symbol)
                     VALUES ('delete', old.id, old.key, old.value, old.market, old.symbol);
+                END
+            """)
+            await conn.execute("""
+                CREATE TRIGGER IF NOT EXISTS knowledge_au AFTER UPDATE ON knowledge BEGIN
+                    INSERT INTO knowledge_fts(knowledge_fts, rowid, key, value, market, symbol)
+                    VALUES ('delete', old.id, old.key, old.value, old.market, old.symbol);
+                    INSERT INTO knowledge_fts(rowid, key, value, market, symbol)
+                    VALUES (new.id, new.key, new.value, new.market, new.symbol);
                 END
             """)
         except Exception:
@@ -239,6 +255,15 @@ class AsyncAgentMemory:
             await self._conn.close()
             self._conn = None
 
+    async def rebuild_fts(self) -> None:
+        conn = await self._get_conn()
+        try:
+            await conn.execute("INSERT INTO messages_fts(messages_fts) VALUES('rebuild')")
+            await conn.execute("INSERT INTO knowledge_fts(knowledge_fts) VALUES('rebuild')")
+            await conn.commit()
+        except Exception:
+            pass
+
 
 class AgentMemory:
     def __init__(self, db_path: str | None = None):
@@ -309,6 +334,12 @@ class AgentMemory:
                     INSERT INTO messages_fts(messages_fts, rowid, content, role, session_id, created_at)
                     VALUES ('delete', old.id, old.content, old.role, old.session_id, old.created_at);
                 END;
+                CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE ON messages BEGIN
+                    INSERT INTO messages_fts(messages_fts, rowid, content, role, session_id, created_at)
+                    VALUES ('delete', old.id, old.content, old.role, old.session_id, old.created_at);
+                    INSERT INTO messages_fts(rowid, content, role, session_id, created_at)
+                    VALUES (new.id, new.content, new.role, new.session_id, new.created_at);
+                END;
                 CREATE TRIGGER IF NOT EXISTS knowledge_ai AFTER INSERT ON knowledge BEGIN
                     INSERT INTO knowledge_fts(rowid, key, value, market, symbol)
                     VALUES (new.id, new.key, new.value, new.market, new.symbol);
@@ -316,6 +347,12 @@ class AgentMemory:
                 CREATE TRIGGER IF NOT EXISTS knowledge_ad AFTER DELETE ON knowledge BEGIN
                     INSERT INTO knowledge_fts(knowledge_fts, rowid, key, value, market, symbol)
                     VALUES ('delete', old.id, old.key, old.value, old.market, old.symbol);
+                END;
+                CREATE TRIGGER IF NOT EXISTS knowledge_au AFTER UPDATE ON knowledge BEGIN
+                    INSERT INTO knowledge_fts(knowledge_fts, rowid, key, value, market, symbol)
+                    VALUES ('delete', old.id, old.key, old.value, old.market, old.symbol);
+                    INSERT INTO knowledge_fts(rowid, key, value, market, symbol)
+                    VALUES (new.id, new.key, new.value, new.market, new.symbol);
                 END;
             """)
         except Exception:
@@ -441,3 +478,11 @@ class AgentMemory:
 
     def close(self):
         self._conn.close()
+
+    def rebuild_fts(self) -> None:
+        try:
+            self._conn.execute("INSERT INTO messages_fts(messages_fts) VALUES('rebuild')")
+            self._conn.execute("INSERT INTO knowledge_fts(knowledge_fts) VALUES('rebuild')")
+            self._conn.commit()
+        except Exception:
+            pass

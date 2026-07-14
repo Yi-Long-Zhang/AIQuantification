@@ -51,3 +51,20 @@ def test_chat_page(client):
     response = client.get("/chat")
     assert response.status_code == 200
     assert "text/html" in response.headers["content-type"]
+
+
+def test_alpha_factors_list(client):
+    response = client.get("/alpha/factors")
+    assert response.status_code == 200
+    data = response.json()
+    assert "alpha158" in data
+    assert "alpha101" in data
+    assert len(data["alpha158"]) == 150
+    assert len(data["alpha101"]) == 101
+
+
+def test_alpha_factors_tools_count(client):
+    response = client.get("/agent/tools")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["count"] >= 35

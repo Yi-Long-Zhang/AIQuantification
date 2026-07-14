@@ -6,6 +6,15 @@ tools:
   - get_crypto_open_interest
   - get_crypto_overview
   - get_crypto_top_coins
+tool_params:
+  get_crypto_fear_greed: {}
+  get_crypto_funding_rate:
+    symbol: "BTC"
+  get_crypto_open_interest:
+    symbol: "BTC"
+  get_crypto_overview: {}
+  get_crypto_top_coins:
+    limit: 10
 tags:
   - crypto
   - sentiment

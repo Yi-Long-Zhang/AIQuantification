@@ -22,6 +22,7 @@ def _load_skill_from_yaml(yaml_path: Path) -> Skill | None:
             name=data.get("name", yaml_path.stem),
             description=data.get("description", ""),
             tools=data.get("tools", []),
+            tool_params=data.get("tool_params", {}),
             prompt_template=data.get("prompt_template", ""),
             tags=data.get("tags", []),
         )

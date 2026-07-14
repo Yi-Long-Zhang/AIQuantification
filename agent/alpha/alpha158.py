@@ -52,7 +52,7 @@ def _ts_cov(a: pd.Series, b: pd.Series, window: int) -> pd.Series:
 
 
 class Alpha158:
-    """Qlib Alpha158 因子库（154 因子）"""
+    """Qlib Alpha158 因子库（150 因子）"""
 
     factors: list[FactorDef] = []
 

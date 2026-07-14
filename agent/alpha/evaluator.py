@@ -29,7 +29,18 @@ class FactorEvaluator:
     @staticmethod
     def compute_ic(factor_values: pd.Series, returns: pd.Series, method: str = "spearman") -> pd.Series:
         if method == "spearman":
-            return factor_values.rolling(20, min_periods=5).corr(returns)
+            def _spearman_corr(window_size: int = 20) -> pd.Series:
+                result = pd.Series(np.nan, index=factor_values.index)
+                f_arr = factor_values.values
+                r_arr = returns.values
+                for i in range(window_size - 1, len(f_arr)):
+                    f_win = f_arr[i - window_size + 1: i + 1]
+                    r_win = r_arr[i - window_size + 1: i + 1]
+                    valid = np.isfinite(f_win) & np.isfinite(r_win)
+                    if valid.sum() >= 5:
+                        result.iloc[i] = float(pd.Series(f_win[valid]).corr(pd.Series(r_win[valid]), method="spearman"))
+                return result
+            return _spearman_corr()
         return factor_values.rolling(20, min_periods=5).corr(returns)
 
     @staticmethod
@@ -80,13 +91,15 @@ class FactorEvaluator:
         sharpe = cls.compute_sharpe(forward_returns)
         max_dd = cls.compute_max_drawdown(forward_returns)
 
+        survival = cls.compute_survival_rate(pd.DataFrame({"f": factor_values}))
+
         return FactorMetrics(
             ic_mean=ic_mean,
             ic_std=ic_std,
             ir=ir,
             ic_positive_ratio=float(ic_positive),
             turnover=turnover,
-            survival_rate=1.0,
+            survival_rate=survival,
             sharpe=sharpe,
             max_drawdown=max_dd,
         )

@@ -55,3 +55,28 @@ def test_rank_factors(sample_data):
     ranked = FactorEvaluator.rank_factors(metrics, top_n=1)
     assert len(ranked) == 1
     assert ranked[0]["name"] == "factor_a"
+
+
+def test_compute_ic_spearman(sample_data):
+    from agent.alpha.evaluator import FactorEvaluator
+    factor, returns = sample_data
+    ic = FactorEvaluator.compute_ic(factor, returns, method="spearman")
+    assert len(ic) == len(factor)
+    valid = ic.dropna()
+    assert len(valid) > 0
+    assert all(-1 <= v <= 1 for v in valid)
+
+
+def test_compute_ic_pearson(sample_data):
+    from agent.alpha.evaluator import FactorEvaluator
+    factor, returns = sample_data
+    ic = FactorEvaluator.compute_ic(factor, returns, method="pearson")
+    assert len(ic) == len(factor)
+
+
+def test_evaluate_survival_rate(sample_data):
+    from agent.alpha.evaluator import FactorEvaluator
+    factor, returns = sample_data
+    metrics = FactorEvaluator.evaluate(factor, returns)
+    assert 0.0 <= metrics.survival_rate <= 1.0
+    assert metrics.survival_rate == 1.0

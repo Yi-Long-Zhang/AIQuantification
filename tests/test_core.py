@@ -91,3 +91,43 @@ async def test_convert_history_filters_invalid_roles(tmp_db):
         assert messages[2]["content"] == "Hi!"
         assert messages[3]["content"] == "System message"
         await agent.close()
+
+
+@pytest.mark.asyncio
+async def test_skill_definitions_included(tmp_db):
+    with patch("agent.core.LLMClient") as mock_llm:
+        mock_client = MagicMock()
+        mock_client.close = AsyncMock()
+        mock_llm.return_value = mock_client
+        agent = QuantAgent(db_path=tmp_db)
+
+        skill_tools = [t for t in agent.tools if t["function"]["name"].startswith("skill_")]
+        assert len(skill_tools) >= 3
+        skill_names = [t["function"]["name"] for t in skill_tools]
+        assert "skill_hk_fund_flow" in skill_names
+        assert "skill_crypto_sentiment" in skill_names
+        assert "skill_multi_market_compare" in skill_names
+        await agent.close()
+
+
+@pytest.mark.asyncio
+async def test_system_prompt_has_alpha(tmp_db):
+    assert "Alpha101" in SYSTEM_PROMPT
+    assert "Alpha158" in SYSTEM_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_execute_skill(tmp_db):
+    with patch("agent.core.LLMClient") as mock_llm:
+        mock_client = MagicMock()
+        mock_client.close = AsyncMock()
+        mock_client.chat = AsyncMock(return_value={"choices": [{"message": {"content": "test result"}}]})
+        mock_llm.return_value = mock_client
+        agent = QuantAgent(db_path=tmp_db)
+
+        with patch("agent.core.execute_tool", new_callable=AsyncMock) as mock_exec:
+            mock_exec.return_value = {"data": "test"}
+            result = await agent._execute_skill("hk_fund_flow", {"query": "分析港股"}, "test_session")
+            assert "test result" in result
+            assert mock_exec.call_count >= 1
+        await agent.close()

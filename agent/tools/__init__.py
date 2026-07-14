@@ -1,6 +1,8 @@
 from . import (
     backtest,
     constitution,
+    crypto,
+    hk_stock,
     market_data,
     news,
     risk,
@@ -10,6 +12,8 @@ from . import (
 __all__ = [
     "backtest",
     "constitution",
+    "crypto",
+    "hk_stock",
     "market_data",
     "news",
     "risk",

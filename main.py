@@ -9,6 +9,7 @@ from slowapi.errors import RateLimitExceeded
 
 from agent.config import settings
 from api.routes import router as api_router
+from api.multi_agent_routes import router as multi_agent_router
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -25,6 +26,7 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+app.include_router(multi_agent_router)
 
 
 @app.get("/")

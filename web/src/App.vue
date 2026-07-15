@@ -31,6 +31,10 @@
           <el-icon><Management /></el-icon>
           <span>策略库</span>
         </el-menu-item>
+        <el-menu-item index="/agents">
+          <el-icon><Connection /></el-icon>
+          <span>Agent 监控</span>
+        </el-menu-item>
       </el-menu>
 
       <div class="sidebar-footer">
@@ -71,7 +75,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ChatDotRound, Monitor, DataAnalysis, Management, Setting } from '@element-plus/icons-vue'
+import { ChatDotRound, Monitor, DataAnalysis, Management, Setting, Connection } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const showSettings = ref(false)

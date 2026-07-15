@@ -1,14 +1,23 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+import logging
+from typing import Any, AsyncIterator
 
 import httpx
 
 from .config import LLM_PROVIDERS, settings
 
+logger = logging.getLogger(__name__)
+
 
 class LLMClient:
+    """
+    Unified LLM client supporting multiple providers.
+
+    Supports: DeepSeek, OpenAI, Qwen, Gemini
+    """
+
     def __init__(self, provider: str | None = None, model: str | None = None):
         provider = provider or settings.llm_provider
         provider_def = LLM_PROVIDERS.get(provider)
@@ -37,6 +46,8 @@ class LLMClient:
         if fallback and fallback.get("api_key"):
             self.fallback_client = LLMClient._from_dict(fallback)
 
+        logger.info(f"LLMClient initialized: provider={provider}, model={self.model}")
+
     @classmethod
     def _from_dict(cls, cfg: dict[str, Any]) -> LLMClient:
         client = cls.__new__(cls)
@@ -60,7 +71,7 @@ class LLMClient:
                     "Authorization": f"Bearer {self.api_key}",
                     "Content-Type": "application/json",
                 },
-                timeout=120.0,
+                timeout=httpx.Timeout(120.0, connect=10.0),
             )
         return self._http_client
 
@@ -70,25 +81,83 @@ class LLMClient:
         tools: list[dict[str, Any]] | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
+        stream: bool = False,
     ) -> dict[str, Any]:
+        """
+        Send a chat completion request.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            tools: Optional list of function calling tools
+            temperature: Optional temperature override
+            max_tokens: Optional max_tokens override
+            stream: If True, returns immediately (use chat_stream instead)
+
+        Returns:
+            Response dict from the API
+
+        Raises:
+            httpx.HTTPStatusError: On API errors
+        """
         client = await self._client()
+
+        # Build request body
         body: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
             "temperature": temperature if temperature is not None else self.temperature,
-            "max_tokens": max_tokens if max_tokens is not None else self.max_tokens,
         }
+
+        # Only include max_tokens if specified (some models don't accept it)
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+        elif self.max_tokens:
+            body["max_tokens"] = self.max_tokens
+
+        # Add tools if provided
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
 
+        # Stream flag (for completeness, but use chat_stream for streaming)
+        if stream:
+            body["stream"] = True
+
         try:
             resp = await client.post("/chat/completions", json=body)
             resp.raise_for_status()
-            return resp.json()
-        except Exception as e:
+            data = resp.json()
+
+            # Log token usage
+            if "usage" in data:
+                usage = data["usage"]
+                logger.debug(
+                    f"LLM usage: prompt={usage.get('prompt_tokens')}, "
+                    f"completion={usage.get('completion_tokens')}, "
+                    f"total={usage.get('total_tokens')}"
+                )
+
+            return data
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"LLM API error: {e.response.status_code} - {e.response.text}")
             if self.fallback_client:
-                return await self.fallback_client.chat(messages, tools, temperature, max_tokens)
+                logger.info("Trying fallback client...")
+                return await self.fallback_client.chat(messages, tools, temperature, max_tokens, stream)
+            raise
+
+        except httpx.TimeoutException as e:
+            logger.error(f"LLM request timeout: {e}")
+            if self.fallback_client:
+                logger.info("Trying fallback client...")
+                return await self.fallback_client.chat(messages, tools, temperature, max_tokens, stream)
+            raise
+
+        except Exception as e:
+            logger.error(f"LLM request failed: {e}")
+            if self.fallback_client:
+                logger.info("Trying fallback client...")
+                return await self.fallback_client.chat(messages, tools, temperature, max_tokens, stream)
             raise
 
     async def chat_stream(
@@ -97,31 +166,73 @@ class LLMClient:
         tools: list[dict[str, Any]] | None = None,
         temperature: float | None = None,
         max_tokens: int | None = None,
-    ):
+    ) -> AsyncIterator[dict[str, Any]]:
+        """
+        Send a streaming chat completion request.
+
+        Yields:
+            Chunk dicts from the SSE stream
+
+        Example:
+            async for chunk in client.chat_stream(messages):
+                if chunk['choices'][0].get('delta', {}).get('content'):
+                    print(chunk['choices'][0]['delta']['content'], end='')
+        """
         client = await self._client()
+
         body: dict[str, Any] = {
             "model": self.model,
             "messages": messages,
             "temperature": temperature if temperature is not None else self.temperature,
-            "max_tokens": max_tokens if max_tokens is not None else self.max_tokens,
             "stream": True,
         }
+
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
+        elif self.max_tokens:
+            body["max_tokens"] = self.max_tokens
+
         if tools:
             body["tools"] = tools
             body["tool_choice"] = "auto"
 
-        async with client.stream("POST", "/chat/completions", json=body) as resp:
-            resp.raise_for_status()
-            async for line in resp.aiter_lines():
-                if line.startswith("data: "):
-                    data = line[6:]
-                    if data.strip() == "[DONE]":
-                        break
-                    try:
-                        yield json.loads(data)
-                    except json.JSONDecodeError:
+        try:
+            async with client.stream("POST", "/chat/completions", json=body) as resp:
+                resp.raise_for_status()
+
+                async for line in resp.aiter_lines():
+                    # SSE format: "data: {...}"
+                    if not line.strip():
                         continue
 
+                    if line.startswith("data: "):
+                        data_str = line[6:]  # Remove "data: " prefix
+
+                        # End of stream marker
+                        if data_str.strip() == "[DONE]":
+                            break
+
+                        try:
+                            chunk = json.loads(data_str)
+                            yield chunk
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"Failed to parse SSE chunk: {data_str[:100]}... - {e}")
+                            continue
+
+        except httpx.HTTPStatusError as e:
+            logger.error(f"LLM stream error: {e.response.status_code} - {e.response.text}")
+            raise
+
+        except Exception as e:
+            logger.error(f"LLM stream failed: {e}")
+            raise
+
     async def close(self):
+        """Close the HTTP client."""
         if self._http_client:
             await self._http_client.aclose()
+            self._http_client = None
+            logger.debug("LLMClient HTTP connection closed")
+
+    def __repr__(self) -> str:
+        return f"<LLMClient provider={self.provider} model={self.model}>"

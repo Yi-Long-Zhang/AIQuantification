@@ -36,17 +36,25 @@
 git clone https://github.com/Yi-Long-Zhang/AIQuantification.git
 cd AIQuantification
 
-# 2. 安装后端依赖
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+# 2. 安装后端依赖（使用 uv，更快！）
+uv sync
+
+# 或者使用传统方式
+# python -m venv .venv
+# source .venv/bin/activate  # Windows: .venv\Scripts\activate
+# pip install -r requirements.txt
 
 # 3. 配置
 cp config.yaml.example config.yaml
-# 编辑 config.yaml，填入你的 API Key
+# 编辑 config.yaml，填入你的 LLM API Key
 
 # 4. 启动后端
-python -m uvicorn main:app --reload
+uv run uvicorn main:app --reload
+
+# 或者先激活虚拟环境再启动
+# .venv\Scripts\activate  # Windows
+# source .venv/bin/activate  # Linux/Mac
+# python -m uvicorn main:app --reload
 
 # 5. 启动前端（新终端）
 cd web

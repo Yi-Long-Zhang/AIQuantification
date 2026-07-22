@@ -11,6 +11,7 @@ from agent.core import QuantAgent
 from agent.skills import get_skill_registry
 from agent.strategies.registry import list_strategies
 from agent.tools.registry import get_tool_names
+from agent.broker.registry import get_broker_registry
 from models.schemas import (
     AgentRequest, AgentResponse, AlphaComputeRequest, AlphaEvaluateRequest,
     BacktestRequest, BacktestResult, MarketDataRequest,
@@ -82,6 +83,70 @@ async def get_strategies(request: Request):
 async def list_skills(request: Request):
     registry = get_skill_registry()
     return {"skills": registry.list_all(), "count": len(registry.list_all())}
+
+
+@router.get("/broker/list")
+@limiter.limit("30/minute")
+async def list_brokers(request: Request):
+    """List all registered broker connections."""
+    registry = get_broker_registry()
+    return {"brokers": registry.list_all(), "count": len(registry.list_all())}
+
+
+@router.get("/broker/{name}/status")
+@limiter.limit("30/minute")
+async def broker_status(request: Request, name: str):
+    """Get broker connection status and account info."""
+    registry = get_broker_registry()
+    broker = registry.get(name)
+    if broker is None:
+        raise HTTPException(status_code=404, detail=f"Broker '{name}' not found")
+    if not broker.is_connected:
+        return {"name": name, "connected": False}
+    try:
+        account = await broker.get_account()
+        positions = await broker.get_positions()
+        return {
+            "name": name,
+            "connected": True,
+            "account": account.to_dict(),
+            "positions": [p.to_dict() for p in positions],
+        }
+    except Exception as e:
+        return {"name": name, "connected": False, "error": str(e)}
+
+
+@router.post("/broker/{name}/connect")
+@limiter.limit("10/minute")
+async def connect_broker(request: Request, name: str):
+    """Connect a registered broker."""
+    registry = get_broker_registry()
+    broker = registry.get(name)
+    if broker is None:
+        raise HTTPException(status_code=404, detail=f"Broker '{name}' not found")
+    success = await broker.connect()
+    return {"name": name, "connected": success}
+
+
+@router.get("/broker/{name}/orders")
+@limiter.limit("20/minute")
+async def broker_orders(request: Request, name: str, status: str | None = None):
+    """Get orders for a broker."""
+    registry = get_broker_registry()
+    broker = registry.get(name)
+    if broker is None:
+        raise HTTPException(status_code=404, detail=f"Broker '{name}' not found")
+    orders = await broker.get_orders(status=status)
+    return {"orders": [o.to_dict() for o in orders], "count": len(orders)}
+
+
+@router.post("/broker/import-trades")
+@limiter.limit("10/minute")
+async def import_trades(request: Request, csv_content: str = ""):
+    """Import trades from CSV content."""
+    from agent.broker.tools import import_trades_csv
+    result = await import_trades_csv(csv_content)
+    return result
 
 
 @router.post("/backtest", response_model=list[BacktestResult])

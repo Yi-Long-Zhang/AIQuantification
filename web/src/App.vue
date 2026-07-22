@@ -35,6 +35,10 @@
           <el-icon><Connection /></el-icon>
           <span>Agent 监控</span>
         </el-menu-item>
+        <el-menu-item index="/broker">
+          <el-icon><Connection /></el-icon>
+          <span>券商连接</span>
+        </el-menu-item>
       </el-menu>
 
       <div class="sidebar-footer">

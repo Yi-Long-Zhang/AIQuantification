@@ -36,6 +36,12 @@ const router = createRouter({
       name: 'AgentMonitor',
       component: () => import('@/views/AgentMonitorView.vue'),
       meta: { title: 'Agent 监控' }
+    },
+    {
+      path: '/broker',
+      name: 'Broker',
+      component: () => import('@/views/BrokerView.vue'),
+      meta: { title: '券商连接' }
     }
   ]
 })

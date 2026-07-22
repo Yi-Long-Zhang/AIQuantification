@@ -284,6 +284,33 @@ class TestMultiAgentEndpoints:
         assert response.status_code in (200, 500)
 
 
+# ─── Broker endpoints ────────────────────────────────────────────────────────
+
+class TestBrokerEndpoints:
+    def test_list_brokers(self, client):
+        """GET /broker/list — 返回券商列表"""
+        response = client.get("/broker/list")
+        assert response.status_code == 200
+        data = response.json()
+        assert "brokers" in data
+        assert "count" in data
+
+    def test_broker_status_not_found(self, client):
+        """GET /broker/{name}/status — 未知券商返回 404"""
+        response = client.get("/broker/nonexistent/status")
+        assert response.status_code == 404
+
+    def test_broker_connect_not_found(self, client):
+        """POST /broker/{name}/connect — 未知券商返回 404"""
+        response = client.post("/broker/nonexistent/connect")
+        assert response.status_code == 404
+
+    def test_broker_orders_not_found(self, client):
+        """GET /broker/{name}/orders — 未知券商返回 404"""
+        response = client.get("/broker/nonexistent/orders")
+        assert response.status_code == 404
+
+
 # ─── Root / Health endpoints ─────────────────────────────────────────────────
 
 class TestRootEndpoints:

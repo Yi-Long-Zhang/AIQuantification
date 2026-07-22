@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 from datetime import datetime
 
 from agent.llm_client import LLMClient
@@ -32,8 +32,8 @@ class BaseAgent:
         self,
         name: str,
         llm_client: LLMClient,
-        tools: Optional[list[str]] = None,
-        system_prompt: Optional[str] = None
+        tools: list[str] | None = None,
+        system_prompt: str | None = None
     ):
         """
         Initialize the agent.
@@ -190,7 +190,15 @@ Guidelines:
             logger.error(f"Tool {tool_name} failed: {e}")
             raise
 
-    async def ask_llm(self, prompt: str, system_prompt: Optional[str] = None) -> str:
+    async def _safe_tool(self, tool_name: str, **kwargs) -> dict:
+        """Call a tool with safe error handling. Returns empty dict on failure."""
+        try:
+            return await self.call_tool(tool_name, **kwargs)
+        except Exception as e:
+            logger.warning(f"Tool {tool_name} failed: {e}")
+            return {}
+
+    async def ask_llm(self, prompt: str, system_prompt: str | None = None) -> str:
         """
         Ask the LLM a question and get a response.
 
@@ -229,7 +237,7 @@ Guidelines:
         self,
         prompt: str,
         schema: dict,
-        system_prompt: Optional[str] = None
+        system_prompt: str | None = None
     ) -> dict:
         """
         Ask the LLM for a structured JSON response.

@@ -176,7 +176,7 @@ class LLMClient:
         Example:
             async for chunk in client.chat_stream(messages):
                 if chunk['choices'][0].get('delta', {}).get('content'):
-                    print(chunk['choices'][0]['delta']['content'], end='')
+                    sys.stdout.write(chunk['choices'][0]['delta']['content'])
         """
         client = await self._client()
 

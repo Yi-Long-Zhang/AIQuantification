@@ -169,10 +169,3 @@ For each symbol return a JSON object in this array:
         except Exception as e:
             logger.warning(f"K-line fetch failed for {symbol}: {e}")
             return []
-
-    async def _safe_tool(self, tool_name: str, **kwargs):
-        try:
-            return await self.call_tool(tool_name, **kwargs)
-        except Exception as e:
-            logger.warning(f"Tool {tool_name} failed: {e}")
-            return {}

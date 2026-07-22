@@ -9,7 +9,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 from enum import Enum
 from dataclasses import dataclass, asdict
 
@@ -50,9 +50,9 @@ class AgentMessage:
     message_type: MessageType
     content: dict[str, Any]
     priority: MessagePriority = MessagePriority.NORMAL
-    message_id: Optional[str] = None
-    correlation_id: Optional[str] = None  # For request-response correlation
-    timestamp: Optional[str] = None
+    message_id: str | None = None
+    correlation_id: str | None = None  # For request-response correlation
+    timestamp: str | None = None
 
     def __post_init__(self):
         """Generate message ID and timestamp if not provided"""
@@ -211,7 +211,7 @@ class MessageBroker:
 
         logger.debug(f"Broadcast message to {len(recipients)} agents")
 
-    async def receive(self, agent_name: str, timeout: Optional[float] = None) -> Optional[AgentMessage]:
+    async def receive(self, agent_name: str, timeout: float | None = None) -> AgentMessage | None:
         """
         Receive a message for an agent.
 
@@ -248,7 +248,7 @@ class MessageBroker:
         content: dict[str, Any],
         timeout: float = 30.0,
         priority: MessagePriority = MessagePriority.NORMAL
-    ) -> Optional[dict[str, Any]]:
+    ) -> dict[str, Any] | None:
         """
         Send a request and wait for response.
 
@@ -322,7 +322,7 @@ class MessageBroker:
 
     def get_message_history(
         self,
-        agent_name: Optional[str] = None,
+        agent_name: str | None = None,
         limit: int = 100
     ) -> list[AgentMessage]:
         """

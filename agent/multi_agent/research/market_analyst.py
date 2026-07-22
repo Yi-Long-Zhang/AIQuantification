@@ -136,14 +136,6 @@ Return a JSON object with exactly these keys:
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    async def _safe_tool(self, tool_name: str, **kwargs):
-        """Call a tool; return empty dict on failure."""
-        try:
-            return await self.call_tool(tool_name, **kwargs)
-        except Exception as e:
-            logger.warning(f"Tool {tool_name} failed: {e}")
-            return {}
-
     @staticmethod
     def _fallback_report(overview, sectors) -> dict:
         """Return a neutral fallback when LLM is unavailable."""

@@ -162,13 +162,6 @@ Return a JSON array of the top {top_n} candidates, sorted by composite_score des
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    async def _safe_tool(self, tool_name: str, **kwargs):
-        try:
-            return await self.call_tool(tool_name, **kwargs)
-        except Exception as e:
-            logger.warning(f"Tool {tool_name} failed: {e}")
-            return {}
-
     @staticmethod
     def _fallback_candidates(watchlist: list[str], market: str) -> list[dict]:
         """Return equal-weighted candidates when LLM fails."""

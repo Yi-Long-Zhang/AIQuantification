@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from .base import BaseAgent
 from .communication import AgentMessage, MessageBroker, MessageType, MessagePriority
@@ -68,7 +68,7 @@ Output decisions as JSON with: symbol, action, confidence, reasoning, risk_appro
         self.broker.register_agent(agent.name)
         logger.info(f"Coordinator registered agent: {agent.name}")
 
-    def get_agent(self, name: str) -> Optional[BaseAgent]:
+    def get_agent(self, name: str) -> BaseAgent | None:
         """Retrieve a registered agent by name."""
         return self.registered_agents.get(name)
 
@@ -159,7 +159,7 @@ Output decisions as JSON with: symbol, action, confidence, reasoning, risk_appro
     async def run_research_phase(
         self,
         market: str = "us_stock",
-        context: Optional[dict] = None
+        context: dict | None = None
     ) -> dict:
         """
         Run the research phase: all research agents in parallel.
@@ -204,7 +204,7 @@ Output decisions as JSON with: symbol, action, confidence, reasoning, risk_appro
     async def run_strategy_phase(
         self,
         research_report: dict,
-        context: Optional[dict] = None
+        context: dict | None = None
     ) -> dict:
         """
         Run the strategy phase based on research results.
@@ -248,7 +248,7 @@ Output decisions as JSON with: symbol, action, confidence, reasoning, risk_appro
     async def run_risk_phase(
         self,
         strategy_report: dict,
-        context: Optional[dict] = None
+        context: dict | None = None
     ) -> dict:
         """
         Run the risk assessment phase.
@@ -301,7 +301,7 @@ Output decisions as JSON with: symbol, action, confidence, reasoning, risk_appro
     async def run_trading_cycle(
         self,
         market: str = "us_stock",
-        context: Optional[dict] = None
+        context: dict | None = None
     ) -> dict:
         """
         Run a complete trading cycle end-to-end.

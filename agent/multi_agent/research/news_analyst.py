@@ -142,13 +142,6 @@ Return a JSON object:
 
     # ── Helpers ───────────────────────────────────────────────────────────────
 
-    async def _safe_tool(self, tool_name: str, **kwargs):
-        try:
-            return await self.call_tool(tool_name, **kwargs)
-        except Exception as e:
-            logger.warning(f"Tool {tool_name} failed: {e}")
-            return {}
-
     @staticmethod
     def _fallback_report() -> dict:
         return {

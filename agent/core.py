@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from models.schemas import AgentMessage
 from .config import settings
 from .llm_client import LLMClient
 from .memory import AsyncAgentMemory

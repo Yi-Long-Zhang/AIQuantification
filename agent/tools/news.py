@@ -63,11 +63,11 @@ async def analyze_sentiment(market: str = "crypto") -> dict:
             result["classification"] = "Unknown"
 
     elif market == "us_stock":
-        from yfinance import ticker as yft
+        import yfinance as yf
 
         def _fetch():
             try:
-                cboe = yft.Ticker("^VIX")
+                cboe = yf.Ticker("^VIX")
                 info = cboe.info
                 vix = info.get("regularMarketPrice")
                 result["vix"] = vix

@@ -109,86 +109,14 @@ def _run_backtest_logic(
 
 
 def _generate_signals(df: pd.DataFrame, strategy: str) -> pd.Series:
-    """根据策略名称生成交易信号"""
-    signals = pd.Series(0, index=df.index)
-
-    if strategy == "sma_cross":
-        sma20 = df["Close"].rolling(20).mean()
-        sma50 = df["Close"].rolling(50).mean()
-        signals[sma20 > sma50] = 1
-        signals[sma20 < sma50] = -1
-
-    elif strategy == "macd":
-        exp12 = df["Close"].ewm(span=12).mean()
-        exp26 = df["Close"].ewm(span=26).mean()
-        macd_line = exp12 - exp26
-        signal_line = macd_line.ewm(span=9).mean()
-        signals[macd_line > signal_line] = 1
-        signals[macd_line < signal_line] = -1
-
-    elif strategy == "rsi":
-        delta = df["Close"].diff()
-        gain = delta.where(delta > 0, 0).rolling(14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
-        rs = gain / loss.replace(0, np.nan)
-        rsi = 100 - (100 / (1 + rs))
-        signals[rsi < 30] = 1
-        signals[rsi > 70] = -1
-
-    elif strategy == "bollinger":
-        sma20 = df["Close"].rolling(20).mean()
-        std20 = df["Close"].rolling(20).std()
-        upper = sma20 + 2 * std20
-        lower = sma20 - 2 * std20
-        signals[df["Close"] < lower] = 1
-        signals[df["Close"] > upper] = -1
-
-    elif strategy == "ichimoku":
-        high_9 = df["High"].rolling(9).max()
-        low_9 = df["Low"].rolling(9).min()
-        tenkan = (high_9 + low_9) / 2
-        high_26 = df["High"].rolling(26).max()
-        low_26 = df["Low"].rolling(26).min()
-        kijun = (high_26 + low_26) / 2
-        senkou_a = ((tenkan + kijun) / 2).shift(26)
-        senkou_b = ((df["High"].rolling(52).max() + df["Low"].rolling(52).min()) / 2).shift(26)
-        cloud_top = pd.concat([senkou_a, senkou_b], axis=1).max(axis=1)
-        cloud_bottom = pd.concat([senkou_a, senkou_b], axis=1).min(axis=1)
-        signals[(tenkan > kijun) & (df["Close"] > cloud_top)] = 1
-        signals[(tenkan < kijun) & (df["Close"] < cloud_bottom)] = -1
-
-    elif strategy == "smc":
-        df = df.copy()
-        df["h_20"] = df["High"].rolling(20).max()
-        df["l_20"] = df["Low"].rolling(20).min()
-        signals[(df["Close"] > df["h_20"].shift(1))] = 1
-        signals[(df["Close"] < df["l_20"].shift(1))] = -1
-
-    elif strategy == "multi_factor":
-        ret_20 = df["Close"].pct_change(20)
-        vol_20 = df["Close"].pct_change().rolling(20).std()
-        vol_score = -vol_20.rank(pct=True)
-        ret_score = ret_20.rank(pct=True)
-        avg_vol = df["Volume"].rolling(20).mean()
-        vol_ratio = df["Volume"] / avg_vol.replace(0, np.nan)
-        vol_ratio_score = vol_ratio.rank(pct=True)
-        composite = 0.4 * ret_score + 0.3 * vol_score + 0.3 * vol_ratio_score
-        signals[composite > 0.6] = 1
-        signals[composite < 0.4] = -1
-
-    elif strategy == "crypto_funding":
-        ret_8h = df["Close"].pct_change(3)
-        vol_24h = df["Close"].pct_change().rolling(9).std()
-        momentum_signal = pd.Series(0, index=df.index)
-        momentum_signal[ret_8h > 0.02] = 1
-        momentum_signal[ret_8h < -0.02] = -1
-        vol_signal = pd.Series(0, index=df.index)
-        vol_signal[vol_24h > vol_24h.rolling(20).mean() * 1.5] = -1
-        vol_signal[vol_24h < vol_24h.rolling(20).mean() * 0.5] = 1
-        signals[(momentum_signal == 1) & (vol_signal >= 0)] = 1
-        signals[(momentum_signal == -1) & (vol_signal <= 0)] = -1
-
-    return signals
+    """根据策略名称生成交易信号，委托到 strategies/ 的策略类"""
+    from agent.strategies.registry import get_strategy
+    strat = get_strategy(strategy)
+    if strat is None:
+        logger.warning(f"Unknown strategy '{strategy}', using sma_cross")
+        from agent.strategies.registry import SMACrossStrategy
+        strat = SMACrossStrategy()
+    return strat.generate_signals(df)
 
 
 async def _fetch_and_prepare_df(symbol: str, market: str, start_date: str, end_date: str) -> pd.DataFrame | None:

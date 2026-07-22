@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import UnoCSS from 'unocss/vite'
@@ -42,5 +43,11 @@ export default defineConfig({
         changeOrigin: true
       }
     }
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    include: ['src/**/*.{test,spec}.{ts,js}'],
+    setupFiles: ['src/test-setup.ts'],
   }
 })

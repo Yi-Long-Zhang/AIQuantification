@@ -73,7 +73,19 @@ async def my_tool(param: str) -> dict:
 - ❌ `from module import *`
 - ❌ 捕获 `BaseException`
 
-### 3.4 错误处理
+### 3.4 DRY 原则（禁止复制粘贴）
+
+- 相同逻辑出现 ≥2 次必须提取为共享函数/基类方法
+- 子类之间重复的方法必须提升到父类
+- 策略逻辑不允许多处独立实现，必须引用单一来源
+
+### 3.5 类型注解
+
+- 强制使用 PEP 604 现代语法：`str | None`，禁止 `Optional[str]`
+- 所有公开函数必须有参数和返回值类型注解
+- dict/list 等泛型容器标注具体类型参数（如 `dict[str, float]`）
+
+### 3.6 错误处理
 
 ```python
 try:
@@ -97,6 +109,15 @@ except Exception as e:
 ---
 
 ## 五、Git 提交
+
+### 5.1 分支策略
+
+- `main`：稳定分支，只通过 PR/Merge 进入，禁止直接提交
+- 功能开发使用 `feature/<描述>` 分支（如 `feature/phase3-frontend`）
+- 修复使用 `fix/<描述>` 分支
+- 开发完成后合并到 `main`，删除功能分支
+
+### 5.2 提交格式
 
 ```
 <type>: <简短描述>
@@ -185,5 +206,35 @@ docs/                   # 设计文档与教程
 ```bash
 uvicorn main:app --reload --port 8000
 ```
+
+## 十一、前端规范
+
+### 11.1 技术栈
+
+- Vue 3 + TypeScript + Vite（`web/` 目录独立管理）
+- 状态管理：Pinia
+- UI 组件库：Element Plus / Naive UI
+- 图表：TradingView lightweight-charts
+- HTTP 客户端：Axios（统一拦截器处理错误）
+
+### 11.2 代码规范
+
+- 所有 `.vue` 组件使用 `<script setup lang="ts">`
+- `.ts` 文件必须有类型标注，禁止 `any`（除非有充分理由）
+- API 层（`web/src/api/`）只封装请求，不包含业务逻辑
+- 前端必须有测试：推荐 vitest，覆盖核心组件和 API 层
+
+### 11.3 禁止
+
+- ❌ 在 Python 路由中内嵌 HTML/CSS/JS（由 Vue 前端处理）
+- ❌ 前后端 API 契约不一致（前端拦截器字段后端不验证）
+
+## 十二、测试要求
+
+- 新增功能必须包含测试（`tests/` 目录）
+- 每个 API 路由端点至少有一个集成测试
+- 核心模块（agent/, tools/）覆盖率 ≥ 80%
+- 工具函数覆盖率 ≥ 90%
+- Bug 修复必须包含回归测试
 
 > 完整开发宪法见 `docs/development-constitution.md`（9 章 356 行，含测试规范、文档规范、宪法修正流程）。

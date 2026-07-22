@@ -162,43 +162,95 @@ Output decisions as JSON with: symbol, action, confidence, reasoning, risk_appro
         context: dict | None = None
     ) -> dict:
         """
-        Run the research phase: all research agents in parallel.
+        Run the research phase: DataMiner first, then remaining analysts in parallel.
+
+        DataMiner runs first to produce candidate symbols; those candidates are
+        passed as context to the other research agents (Technical, Fundamental,
+        News, Market) so they have concrete stocks to analyze.
 
         Returns combined research report.
         """
         logger.info("=== Research Phase Start ===")
         context = context or {}
 
-        research_agents = [
+        all_research_agents = [
             name for name in self.list_agents()
             if any(kw in name.lower() for kw in ["market", "data", "news", "fundamental", "technical"])
         ]
 
-        if not research_agents:
+        if not all_research_agents:
             logger.warning("No research agents registered, skipping research phase")
             return {"status": "skipped", "reason": "No research agents registered"}
 
-        task_base = {
-            "type": "analyze",
-            "input": {"market": market, "context": context},
-            "context": context
+        # ── Step 1: Run DataMiner first to get candidate symbols ──
+        data_miner_name = next(
+            (n for n in all_research_agents if "data" in n.lower()),
+            None
+        )
+
+        research_results: dict[str, dict] = {}
+        candidates: list[dict] = []
+
+        if data_miner_name:
+            logger.info(f"Running DataMiner ({data_miner_name}) first to mine candidates")
+            data_miner_task = {
+                "type": "analyze",
+                "input": {"market": market, "context": context},
+                "context": context,
+                "task_id": f"research_{data_miner_name}_{datetime.now().timestamp()}",
+            }
+            dm_result = await self.delegate(data_miner_name, data_miner_task, MessagePriority.HIGH)
+            research_results[data_miner_name] = dm_result
+
+            # Extract candidates from DataMiner output
+            dm_output = dm_result.get("output", {})
+            candidates = dm_output.get("candidates", dm_output.get("signals", []))
+            if candidates:
+                logger.info(f"DataMiner produced {len(candidates)} candidates")
+            else:
+                logger.info("DataMiner returned no candidates, continuing with empty list")
+        else:
+            logger.warning("No DataMiner agent found, research agents will run without candidate data")
+
+        # ── Step 2: Build enriched context with DataMiner candidates ──
+        research_context = {**context, "candidates": candidates}
+        research_report_partial = {
+            "phase": "research",
+            "market": market,
+            "timestamp": datetime.now().isoformat(),
+            "agents": research_results,
         }
 
-        assignments = [
-            (name, {**task_base, "task_id": f"research_{name}_{datetime.now().timestamp()}"})
-            for name in research_agents
-        ]
+        # ── Step 3: Run remaining research agents in parallel ──
+        remaining_agents = [n for n in all_research_agents if n != data_miner_name]
 
-        results = await self.delegate_parallel(assignments, priority=MessagePriority.HIGH)
+        if remaining_agents:
+            task_base = {
+                "type": "analyze",
+                "input": {
+                    "market": market,
+                    "context": research_context,
+                    "research": research_report_partial,
+                },
+                "context": research_context,
+            }
+            assignments = [
+                (name, {**task_base, "task_id": f"research_{name}_{datetime.now().timestamp()}"})
+                for name in remaining_agents
+            ]
+            remaining_results = await self.delegate_parallel(assignments, priority=MessagePriority.HIGH)
+            research_results.update(remaining_results)
 
         report = {
             "phase": "research",
             "market": market,
             "timestamp": datetime.now().isoformat(),
-            "agents": results,
-            "summary": self._summarize_research(results)
+            "agents": research_results,
+            "summary": self._summarize_research(research_results),
+            "candidates": candidates,
         }
-        logger.info(f"Research phase complete: {len(results)} agents contributed")
+        logger.info(f"Research phase complete: {len(research_results)} agents contributed, "
+                     f"{len(candidates)} candidates")
         return report
 
     async def run_strategy_phase(

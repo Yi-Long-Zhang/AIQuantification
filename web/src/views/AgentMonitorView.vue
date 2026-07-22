@@ -193,9 +193,7 @@ import { ElMessage } from 'element-plus'
 import {
   Refresh, VideoPlay, UserFilled, ChatLineRound
 } from '@element-plus/icons-vue'
-import axios from 'axios'
-
-const API = axios.create({ baseURL: 'http://localhost:8000' })
+import api from '@/api'
 
 // ── State ──────────────────────────────────────────────
 const loading      = ref(false)
@@ -218,15 +216,15 @@ const refreshStatus = async () => {
   loading.value = true
   try {
     const [statusRes, statsRes, msgsRes] = await Promise.all([
-      API.get('/multi-agent/status'),
-      API.get('/multi-agent/broker/stats'),
-      API.get('/multi-agent/messages', {
+      api.get('/multi-agent/status'),
+      api.get('/multi-agent/broker/stats'),
+      api.get('/multi-agent/messages', {
         params: { agent: selectedAgent.value || undefined, limit: 50 }
       })
     ])
-    status.value      = statusRes.data
-    brokerStats.value = statsRes.data
-    messages.value    = msgsRes.data.messages.reverse()
+    status.value      = statusRes
+    brokerStats.value = statsRes
+    messages.value    = msgsRes.messages.reverse()
   } catch (e) {
     console.error(e)
   } finally {
@@ -237,8 +235,8 @@ const refreshStatus = async () => {
 const runCycle = async () => {
   cycleRunning.value = true
   try {
-    const res = await API.post('/multi-agent/cycle', { market: 'us_stock' })
-    lastCycleResult.value = res.data
+    const res = await api.post('/multi-agent/cycle', { market: 'us_stock' })
+    lastCycleResult.value = res
     ElMessage.success('交易周期完成')
     await refreshStatus()
   } catch (e: any) {

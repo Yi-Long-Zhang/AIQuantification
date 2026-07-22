@@ -61,7 +61,7 @@
             show-password
           />
           <div class="form-tip">
-            如果后端启用了认证，需要配置 API Key
+            API 认证功能将在后续版本中启用
           </div>
         </el-form-item>
       </el-form>

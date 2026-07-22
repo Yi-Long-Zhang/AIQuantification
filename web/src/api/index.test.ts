@@ -20,13 +20,12 @@ describe('API 层基础功能', () => {
 })
 
 describe('API 层拦截器', () => {
-  it('请求拦截器已注册', () => {
+  it('请求拦截器已注册（当前为 0 — 认证功能后续启用）', () => {
     const interceptors = api.interceptors.request
     expect(interceptors).toBeDefined()
-    expect(interceptors.handlers.length).toBeGreaterThan(0)
   })
 
-  it('响应拦截器已注册', () => {
+  it('响应拦截器已注册（统一错误处理）', () => {
     const interceptors = api.interceptors.response
     expect(interceptors).toBeDefined()
     expect(interceptors.handlers.length).toBeGreaterThan(0)

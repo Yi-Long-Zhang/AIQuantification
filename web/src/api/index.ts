@@ -9,20 +9,6 @@ const api = axios.create({
   }
 })
 
-// 请求拦截器 - 添加 API Key
-api.interceptors.request.use(
-  config => {
-    const apiKey = localStorage.getItem('api_key')
-    if (apiKey) {
-      config.headers['X-API-Key'] = apiKey
-    }
-    return config
-  },
-  error => {
-    return Promise.reject(error)
-  }
-)
-
 // 响应拦截器 - 统一错误处理
 api.interceptors.response.use(
   response => {

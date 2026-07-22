@@ -409,12 +409,14 @@ dependencies = [
 | 第四阶段：多 Agent 协作 | ✅ 完成 | 2026-07-15 | 2026-07-15 | BaseAgent + Coordinator + 5 Research Agent + 通信层 |
 | 第五阶段：部署和生态 | ⬜ 待开始 | | | Docker/CLI/MCP/Telegram |
 | 第六阶段：高级功能和打磨 | ⬜ 待开始 | | | 富途 API/券商连接/安全加固/CI/CD |
+| **Phase 1：技术债修复** 🛠️ | ✅ 完成 | 2026-07-22 | 2026-07-22 | memory 重构、API 路由测试(+22)、前端测试(+31)、220 总测试 |
 
-### 待修复问题（2026-07-22 审计）
+### 待修复问题（2026-07-22 审计 — Phase 1 已修复）
 
 | 严重度 | 状态 | 数量 | 主要问题 |
 |--------|------|------|---------|
 | 🔴 CRITICAL | 待处理 | 1 | config.yaml 含硬编码 API Key（需轮换） |
 | 🟠 HIGH | ✅ 已修复 | 4 | 未使用导入 ✓、_safe_tool 重复 ✓、策略逻辑重复 ✓、非标准导入 ✓ |
-| 🟡 MEDIUM | ✅ 已修复 | 4 | Optional 类型注解已替换为 str \| None ✓（memory.py 代码重复、API 测试、前端测试仍待办） |
-| 🟢 LOW | ✅ 已修复 | 3 | 惰性导入（基准可接受）、内嵌 HTML（项目设计决策）、docstring 含 print() ✓ | |
+| 🟡 MEDIUM | ✅ 已修复 | 3 | Optional 类型注解 ✓、Memory 重构 ✓、API 路由测试 ✓ |
+| 🟢 LOW | ✅ 已修复 | 3 | 惰性导入（保留）、内嵌 HTML（保留）、docstring 含 print() ✓ |
+| 🟡 前端测试 | ✅ 已新增 | — | vitest 基础设施就绪，31 个测试覆盖 API/formats/SSE/ChatMessage |

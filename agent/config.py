@@ -112,5 +112,16 @@ class Settings:
     def server_reload(self) -> bool:
         return self._raw.get("server", {}).get("reload", True)
 
+    # ── Broker config ─────────────────────────────────────────────────────
+
+    @property
+    def broker_configs(self) -> dict[str, dict[str, Any]]:
+        """Return broker configurations keyed by name."""
+        return self._raw.get("brokers", {})
+
+    def get_broker_config(self, name: str) -> dict[str, Any]:
+        """Get config for a specific broker by name."""
+        return self._raw.get("brokers", {}).get(name, {})
+
 
 settings = Settings()

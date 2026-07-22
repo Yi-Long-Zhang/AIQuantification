@@ -43,3 +43,15 @@ server:
     - "http://127.0.0.1:8000"
     # 生产环境请添加你的域名:
     # - "https://your-domain.com"
+
+# 券商连接配置
+# brokers:
+#   alpaca:
+#     api_key: "your-alpaca-api-key"
+#     secret_key: "your-alpaca-secret"
+#     paper: true
+#     base_url: "https://paper-api.alpaca.markets"
+#   ibkr:
+#     host: "127.0.0.1"
+#     port: 7497
+#     client_id: 1

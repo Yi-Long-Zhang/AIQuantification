@@ -117,7 +117,7 @@ except Exception as e:
 - `main`：稳定分支，只通过 PR/Merge 进入，禁止直接提交
 - 功能开发使用 `feature/<描述>` 分支（如 `feature/phase3-frontend`）
 - 修复使用 `fix/<描述>` 分支
-- 开发完成后合并到 `main`，删除功能分支
+- 开发完成后合并到 `main`，**保留分支，不删除**
 - 合并前优先使用 `git merge`（保留分支历史），避免 squash 丢失上下文
 
 ### 5.2 提交格式

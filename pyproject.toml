@@ -24,3 +24,8 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
 ]
+
+[dependency-groups]
+dev = [
+    "respx>=0.23.1",
+]

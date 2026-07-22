@@ -54,6 +54,16 @@ export interface Strategy {
   parameters?: Record<string, any>
 }
 
+// 技能信息
+export interface Skill {
+  name: string
+  description: string
+  tools: string[]
+  tool_params: Record<string, any>
+  prompt_template: string
+  tags: string[]
+}
+
 // API响应
 export interface ApiResponse<T = any> {
   data?: T

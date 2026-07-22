@@ -136,6 +136,29 @@ class TestStrategyEndpoints:
         assert "crypto_funding" in names
 
 
+# ─── Skill endpoints ─────────────────────────────────────────────────────────
+
+class TestSkillEndpoints:
+    def test_list_skills(self, client):
+        """GET /skills — 返回技能列表"""
+        response = client.get("/skills")
+        assert response.status_code == 200
+        data = response.json()
+        assert "skills" in data
+        assert "count" in data
+        assert data["count"] >= 0
+
+    def test_skill_structure(self, client):
+        """GET /skills — 每个技能包含必要字段"""
+        response = client.get("/skills")
+        data = response.json()
+        for skill in data["skills"]:
+            assert "name" in skill
+            assert "description" in skill
+            assert "tools" in skill
+            assert "tags" in skill
+
+
 # ─── Alpha factor endpoints ──────────────────────────────────────────────────
 
 class TestAlphaEndpoints:

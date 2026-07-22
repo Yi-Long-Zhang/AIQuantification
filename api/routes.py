@@ -8,6 +8,7 @@ from slowapi.util import get_remote_address
 
 from agent.config import settings
 from agent.core import QuantAgent
+from agent.skills import get_skill_registry
 from agent.strategies.registry import list_strategies
 from agent.tools.registry import get_tool_names
 from models.schemas import (
@@ -74,6 +75,13 @@ async def list_tools(request: Request):
 @limiter.limit("30/minute")
 async def get_strategies(request: Request):
     return {"strategies": list_strategies()}
+
+
+@router.get("/skills")
+@limiter.limit("30/minute")
+async def list_skills(request: Request):
+    registry = get_skill_registry()
+    return {"skills": registry.list_all(), "count": len(registry.list_all())}
 
 
 @router.post("/backtest", response_model=list[BacktestResult])

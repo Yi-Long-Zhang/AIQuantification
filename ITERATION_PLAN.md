@@ -412,9 +412,9 @@ dependencies = [
 
 ### 待修复问题（2026-07-22 审计）
 
-| 严重度 | 数量 | 主要问题 |
-|--------|------|---------|
-| 🔴 CRITICAL | 1 | config.yaml 含硬编码 API Key（需轮换） |
-| 🟠 HIGH | 4 | 未使用导入、_safe_tool 重复、策略逻辑重复、非标准导入 |
-| 🟡 MEDIUM | 5 | memory.py 代码重复、Optional 类型注解、缺少 API 测试、前端零测试 |
-| 🟢 LOW | 3 | 惰性导入、内嵌 HTML、docstring 含 print() | |
+| 严重度 | 状态 | 数量 | 主要问题 |
+|--------|------|------|---------|
+| 🔴 CRITICAL | 待处理 | 1 | config.yaml 含硬编码 API Key（需轮换） |
+| 🟠 HIGH | ✅ 已修复 | 4 | 未使用导入 ✓、_safe_tool 重复 ✓、策略逻辑重复 ✓、非标准导入 ✓ |
+| 🟡 MEDIUM | ✅ 已修复 | 4 | Optional 类型注解已替换为 str \| None ✓（memory.py 代码重复、API 测试、前端测试仍待办） |
+| 🟢 LOW | ✅ 已修复 | 3 | 惰性导入（基准可接受）、内嵌 HTML（项目设计决策）、docstring 含 print() ✓ | |

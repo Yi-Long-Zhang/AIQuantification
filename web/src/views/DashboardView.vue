@@ -27,6 +27,27 @@
         </el-col>
       </el-row>
     </div>
+
+    <!-- 详情弹窗 -->
+    <el-dialog v-model="detailVisible" :title="detailItem?.symbol || '详情'" width="400px">
+      <template v-if="detailItem">
+        <el-descriptions :column="1" border>
+          <el-descriptions-item label="代码">{{ detailItem.symbol }}</el-descriptions-item>
+          <el-descriptions-item label="名称">{{ detailItem.name || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="价格">
+            <span :class="detailItem.change_percent >= 0 ? 'price-up' : 'price-down'">
+              ${{ detailItem.price?.toLocaleString() }}
+            </span>
+          </el-descriptions-item>
+          <el-descriptions-item label="涨跌幅">
+            <el-tag :type="detailItem.change_percent >= 0 ? 'success' : 'danger'" size="small">
+              {{ detailItem.change_percent >= 0 ? '+' : '' }}{{ detailItem.change_percent }}%
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="成交量">{{ detailItem.volume?.toLocaleString() || '-' }}</el-descriptions-item>
+        </el-descriptions>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -55,9 +76,12 @@ const loadMarketData = async () => {
   }
 }
 
+const detailVisible = ref(false)
+const detailItem = ref<MarketQuote | null>(null)
+
 const showDetail = (item: MarketQuote) => {
-  console.log('Show detail:', item)
-  // TODO: 展示详情弹窗或跳转到详情页
+  detailItem.value = item
+  detailVisible.value = true
 }
 
 onMounted(() => {
@@ -98,5 +122,15 @@ onUnmounted(() => {
 
 .market-grid {
   min-height: 400px;
+}
+
+.price-up {
+  color: #3fb950;
+  font-weight: 600;
+}
+
+.price-down {
+  color: #da3633;
+  font-weight: 600;
 }
 </style>

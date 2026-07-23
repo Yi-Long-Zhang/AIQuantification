@@ -97,13 +97,47 @@
         </el-col>
       </el-row>
     </div>
+
+    <!-- 净值曲线 -->
+    <div v-if="results.length > 0" class="equity-section">
+      <el-divider />
+      <h3 class="section-title">净值曲线</h3>
+      <div ref="equityChartRef" class="equity-chart" />
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import type { BacktestResult } from '@/types'
 import { TrendCharts, DataAnalysis, Bottom, Trophy } from '@element-plus/icons-vue'
+import { createChart, ColorType, type IChartApi, type ISeriesApi, type LineData } from 'lightweight-charts'
+
+const props = defineProps<{
+  results: BacktestResult[]
+  equityData?: number[][]  // per-result equity curves
+}>()
+
+const equityChartRef = ref<HTMLElement | null>(null)
+let equityChart: IChartApi | null = null
+let equityLine: ISeriesApi<'Line'> | null = null
+
+watch(() => props.equityData, drawEquity, { deep: true })
+
+function drawEquity() {
+  if (!equityChartRef.value || !props.equityData?.length) return
+  equityChart?.remove()
+  equityChart = createChart(equityChartRef.value, {
+    layout: { background: { type: ColorType.Solid, color: '#0d1117' }, textColor: '#c9d1d9' },
+    grid: { vertLines: { color: '#21262d' }, horzLines: { color: '#21262d' } },
+    width: equityChartRef.value.clientWidth,
+    height: 300,
+  })
+  equityLine = equityChart.addLineSeries({ color: '#58a6ff', lineWidth: 2 })
+  const data: LineData[] = props.equityData[0].map((v, i) => ({ time: i, value: v }))
+  equityLine.setData(data)
+  equityChart.timeScale().fitContent()
+}
 
 const props = defineProps<{
   results: BacktestResult[]
@@ -203,5 +237,20 @@ const avgWinRate = computed(() => {
 
 :deep(.el-statistic__content) {
   color: #c9d1d9;
+}
+
+.equity-section {
+  margin-top: 24px;
+}
+
+.section-title {
+  font-size: 15px;
+  color: #c9d1d9;
+  margin: 0 0 12px;
+}
+
+.equity-chart {
+  width: 100%;
+  height: 300px;
 }
 </style>

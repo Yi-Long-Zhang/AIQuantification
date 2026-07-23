@@ -120,6 +120,7 @@ def _run_backtest_logic(
         "trade_log": trades[-20:],
         "initial_capital": initial_capital,
         "final_capital": round(capital, 2),
+        "equity_curve": [round(v, 2) for v in portfolio_value],
     }
 
 

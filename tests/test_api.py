@@ -136,6 +136,12 @@ class TestStrategyEndpoints:
         assert "crypto_funding" in names
         assert "atr_channel" in names
         assert "donchian_channel" in names
+        # Check new fields exist
+        s = data["strategies"][0]
+        assert "type" in s
+        assert "markets" in s
+        assert "params" in s
+        assert "risk_level" in s
 
 
 # ─── Skill endpoints ─────────────────────────────────────────────────────────

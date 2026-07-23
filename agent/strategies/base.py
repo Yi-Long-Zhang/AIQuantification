@@ -6,8 +6,11 @@ import pandas as pd
 class Strategy(ABC):
     name: str = "base"
     description: str = "Base strategy"
-    type: str = "其他"  # 趋势/反转/均值回归/事件驱动/组合
-    tags: list[str] = []  # 如 ["momentum", "mean-reversion", "breakout"]
+    type: str = "其他"
+    tags: list[str] = []
+    markets: list[str] = ["us_stock", "cn_stock", "hk_stock", "crypto"]
+    params: dict[str, str] = {}
+    risk_level: str = "中"  # 低/中/高
 
     @abstractmethod
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:

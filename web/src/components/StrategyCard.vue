@@ -19,6 +19,18 @@
           size="small" type="info" class="skill-tag"
         >{{ tag }}</el-tag>
       </div>
+      <div v-if="strategy.markets?.length" class="markets-row">
+        <span class="label">市场：</span>
+        <el-tag v-for="m in strategy.markets" :key="m" size="small" effect="plain">{{ marketLabel(m) }}</el-tag>
+      </div>
+      <div v-if="strategy.params" class="params-row">
+        <span class="label">参数：</span>
+        <span v-for="(v, k) in strategy.params" :key="k" class="param-chip">{{ k }}={{ v }}</span>
+      </div>
+      <div v-if="strategy.risk_level" class="risk-row">
+        <span class="label">风险：</span>
+        <el-tag :type="strategy.risk_level === '高' ? 'danger' : strategy.risk_level === '低' ? 'success' : 'warning'" size="small">{{ strategy.risk_level }}</el-tag>
+      </div>
     </div>
 
     <template #footer>
@@ -45,14 +57,18 @@ const emit = defineEmits<{
 
 const tagType = computed(() => {
   const map: Record<string, string> = {
-    '趋势': 'success',
-    '反转': 'warning',
-    '均值回归': 'danger',
-    '事件驱动': 'info',
-    '组合': 'primary',
+    '趋势': 'success', '反转': 'warning', '均值回归': 'danger',
+    '事件驱动': 'info', '组合': 'primary',
   }
-  return map[props.strategy.type] || ''
+  return map[props.strategy.type || ''] || ''
 })
+
+const marketLabel = (m: string) => {
+  const map: Record<string, string> = {
+    us_stock: '美股', cn_stock: 'A股', hk_stock: '港股', crypto: '加密货币',
+  }
+  return map[m] || m
+}
 
 const handleUse = () => {
   emit('use', props.strategy)
@@ -124,5 +140,26 @@ const handleUse = () => {
 
 .skill-tag {
   margin: 2px;
+}
+
+.markets-row, .params-row, .risk-row {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.label {
+  font-size: 12px;
+  color: #6e7681;
+}
+
+.param-chip {
+  font-size: 11px;
+  color: #8b949e;
+  background: #21262d;
+  padding: 1px 6px;
+  border-radius: 3px;
 }
 </style>

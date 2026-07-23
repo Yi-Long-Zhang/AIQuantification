@@ -53,6 +53,9 @@ export interface Strategy {
   description: string
   type?: string
   tags?: string[]
+  markets?: string[]
+  params?: Record<string, string>
+  risk_level?: string
   parameters?: Record<string, any>
 }
 

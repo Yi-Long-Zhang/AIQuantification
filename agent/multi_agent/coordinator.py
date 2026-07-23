@@ -447,13 +447,22 @@ Output decisions as JSON with: symbol, action, confidence, reasoning, risk_appro
                 "risk_approved": False
             }
 
-        prompt = f"""Based on the following multi-agent analysis, synthesize a final trading decision.
+        prompt = f"""You are the final decision maker in a quantitative trading system.
+
+Based on multi-agent analysis, synthesize the final decision.
 
 Research Summary: {research.get('summary', {})}
 Strategy Signals: {strategy.get('signals', [])}
 Risk-Approved Signals: {approved_signals}
 
-Provide a final decision for the top 3 signals at most."""
+Confidence calibration:
+- 0.85-1.0: multiple agents agree, strong signals, low macro risk
+- 0.65-0.84: 2+ agents agree, moderate signals
+- 0.50-0.64: mixed signals, cautious entry
+- <0.50: hold, insufficient evidence
+
+Provide ONLY the top 3 signals with specific entry/stop/take-profit levels.
+Every decision MUST include reasoning that references WHICH agent provided the signal."""
 
         schema = {
             "type": "object",

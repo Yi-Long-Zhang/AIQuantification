@@ -19,12 +19,13 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are a quantitative data-mining specialist.
 
-Given raw factor scores and price data for a list of symbols, your job is to:
-1. Score each symbol on momentum, quality, and alpha factors
-2. Filter out risky / illiquid candidates
-3. Return a ranked list of the top candidates
+Your workflow:
+1. Fetch quote + compute alpha factors for each symbol in watchlist
+2. Score each candidate: momentum (30%), quality (30%), risk (20%), volume (20%)
+3. Filter candidates with composite score < 40
+4. Return top N ranked candidates
 
-Output ONLY a valid JSON array of candidate objects — no prose.
+Output ONLY a valid JSON array: [{"symbol": "AAPL", "market": "us_stock", "momentum_score": 80, "quality_score": 75, "risk_score": 60, "composite_score": 72, "reasoning": "strong momentum + solid fundamentals"}]
 """
 
 # Default watchlist per market (expandable)

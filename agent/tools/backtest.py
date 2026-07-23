@@ -16,14 +16,16 @@ def _run_backtest_logic(
     initial_capital: float = 100000.0,
     slippage_pct: float = 0.0,
     fee_rate: float = 0.0,
+    use_volume_slippage: bool = False,
 ) -> dict:
-    """核心回测逻辑，支持滑点和手续费"""
+    """核心回测逻辑，支持固定滑点或成交量加权滑点"""
     position = 0
     capital = initial_capital
     shares = 0.0
     trades = []
     portfolio_value = []
     last_signal = 0
+    avg_volume = df["Volume"].replace(0, np.nan).mean() if "Volume" in df.columns else None
 
     for i in range(len(df)):
         sig = signals.iloc[i]
@@ -34,32 +36,45 @@ def _run_backtest_logic(
             portfolio_value.append(equity)
             continue
 
+        # 成交量加权滑点：成交量越小滑点越大
+        effective_slippage = slippage_pct
+        if use_volume_slippage and "Volume" in df.columns and avg_volume and avg_volume > 0:
+            vol = df["Volume"].iloc[i]
+            if not pd.isna(vol) and vol > 0:
+                vol_ratio = vol / avg_volume
+                effective_slippage = slippage_pct / max(vol_ratio, 0.3)
+
         if sig == 1 and last_signal != 1 and position <= 0:
-            buy_price = price * (1 + slippage_pct / 100)
-            cost = shares * buy_price if shares > 0 else 0
-            fee = cost * fee_rate / 100 if shares > 0 else 0
-            capital -= fee
+            buy_price = price * (1 + effective_slippage / 100)
+            actual_fee = 0.0
+            if position < 0 and shares > 0:
+                cost = shares * buy_price
+                actual_fee = cost * fee_rate / 100
+                capital -= actual_fee
             shares = capital / buy_price
             capital = 0.0
             position = 1
             trades.append({
                 "date": str(df["Date"].iloc[i])[:10],
                 "type": "BUY", "price": round(buy_price, 2),
-                "shares": round(shares, 4), "fee": round(fee, 2),
+                "shares": round(shares, 4), "fee": round(actual_fee, 2),
+                "slippage_pct": round(effective_slippage, 4),
+                "volume": round(float(df["Volume"].iloc[i]), 0) if "Volume" in df.columns else None,
             })
             last_signal = 1
 
         elif sig == -1 and last_signal != -1 and position >= 0 and shares > 0:
-            sell_price = price * (1 - slippage_pct / 100)
+            sell_price = price * (1 - effective_slippage / 100)
             revenue = shares * sell_price
-            fee = revenue * fee_rate / 100
-            capital = revenue - fee
+            actual_fee = revenue * fee_rate / 100
+            capital = revenue - actual_fee
             pnl = round((sell_price / trades[-1]["price"] - 1) * 100, 2) if trades else 0
             trades.append({
                 "date": str(df["Date"].iloc[i])[:10],
                 "type": "SELL", "price": round(sell_price, 2),
-                "shares": round(shares, 4), "fee": round(fee, 2),
-                "pnl_pct": pnl,
+                "shares": round(shares, 4), "fee": round(actual_fee, 2),
+                "pnl_pct": pnl, "pnl_abs": round(revenue - (trades[-1]["shares"] * trades[-1]["price"]), 2) if trades else 0,
+                "slippage_pct": round(effective_slippage, 4),
             })
             shares = 0.0
             position = -1
@@ -70,8 +85,8 @@ def _run_backtest_logic(
 
     if shares > 0:
         final_price = df["Close"].iloc[-1]
-        fee = shares * final_price * fee_rate / 100
-        capital = shares * final_price - fee
+        actual_fee = shares * final_price * fee_rate / 100
+        capital = shares * final_price - actual_fee
         shares = 0.0
 
     pv = pd.Series(portfolio_value)
@@ -333,3 +348,89 @@ async def walk_forward_test(
         "overfitting_ratio": round(float(avg_test / avg_train), 2) if avg_train != 0 else None,
         "windows": window_results,
     }
+
+
+@tool(
+    name="trade_attribution",
+    description="逐笔归因分析：每笔交易的盈亏贡献、持仓周期、入场时机分布",
+    parameters={
+        "symbol": {"type": "string", "description": "股票代码"},
+        "market": {"type": "string", "description": "市场", "default": "us_stock"},
+        "strategy": {"type": "string", "description": "策略", "default": "sma_cross"},
+        "start_date": {"type": "string", "description": "开始日期", "default": ""},
+        "end_date": {"type": "string", "description": "结束日期", "default": ""},
+    },
+)
+async def trade_attribution(
+    symbol: str,
+    market: str = "us_stock",
+    strategy: str = "sma_cross",
+    start_date: str = "",
+    end_date: str = "",
+) -> dict:
+    df = await _fetch_and_prepare_df(symbol, market, start_date, end_date)
+    if df is None:
+        return {"error": "Insufficient data"}
+
+    signals = _generate_signals(df, strategy)
+    result = _run_backtest_logic(df, signals)
+
+    trades = result.get("trade_log", [])
+    trades = [t for t in trades if t["type"] == "SELL"]
+
+    if not trades:
+        return {"error": "No completed trades to analyze"}
+
+    pnls = [t.get("pnl_pct", 0) for t in trades]
+    wins = [p for p in pnls if p > 0]
+    losses = [p for p in pnls if p < 0]
+
+    # 持仓周期分布（模拟：用信号切换间隔）
+    dates = [t["date"] for t in trades]
+    holding_days = []
+    for i in range(1, len(dates)):
+        try:
+            d1 = pd.Timestamp(dates[i - 1])
+            d2 = pd.Timestamp(dates[i])
+            holding_days.append((d2 - d1).days)
+        except Exception:
+            pass
+
+    # 盈亏分位数
+    pnl_series = pd.Series(pnls)
+
+    return {
+        "symbol": symbol,
+        "strategy": strategy,
+        "total_trades": len(trades),
+        "win_rate": round(len(wins) / max(len(trades), 1), 3),
+        "avg_win_pct": round(float(np.mean(wins)), 2) if wins else 0,
+        "avg_loss_pct": round(float(np.mean(losses)), 2) if losses else 0,
+        "profit_factor": round(abs(sum(wins) / sum(losses)), 2) if sum(losses) != 0 else None,
+        "max_consecutive_wins": _max_streak(pnls, lambda x: x > 0),
+        "max_consecutive_losses": _max_streak(pnls, lambda x: x < 0),
+        "avg_holding_days": round(float(np.mean(holding_days)), 1) if holding_days else None,
+        "pnl_distribution": {
+            "p25": round(float(pnl_series.quantile(0.25)), 2),
+            "p50": round(float(pnl_series.quantile(0.5)), 2),
+            "p75": round(float(pnl_series.quantile(0.75)), 2),
+            "worst_trade": round(float(pnl_series.min()), 2),
+            "best_trade": round(float(pnl_series.max()), 2),
+        },
+        "recent_trades": [
+            {"date": t["date"], "pnl_pct": t.get("pnl_pct", 0), "slippage_pct": t.get("slippage_pct", 0)}
+            for t in trades[-10:]
+        ],
+    }
+
+
+def _max_streak(values: list[float], condition) -> int:
+    """Calculate max consecutive streak where condition is True."""
+    best = current = 0
+    for v in values:
+        if condition(v):
+            current += 1
+            best = max(best, current)
+        else:
+            current = 0
+    return best

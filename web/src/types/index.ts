@@ -51,6 +51,8 @@ export interface Kline {
 export interface Strategy {
   name: string
   description: string
+  type?: string
+  tags?: string[]
   parameters?: Record<string, any>
 }
 

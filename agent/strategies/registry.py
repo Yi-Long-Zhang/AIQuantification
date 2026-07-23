@@ -11,6 +11,8 @@ from .base import Strategy
 class SMACrossStrategy(Strategy):
     name = "sma_cross"
     description = "SMA 均线交叉策略（20日均线上穿50日均线买入）"
+    type = "趋势"
+    tags = ["trend", "moving-average", "crossover"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         sma20 = df["Close"].rolling(20).mean()
@@ -24,6 +26,8 @@ class SMACrossStrategy(Strategy):
 class MACDStrategy(Strategy):
     name = "macd"
     description = "MACD 趋势跟踪策略"
+    type = "趋势"
+    tags = ["trend", "momentum", "macd"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         exp12 = df["Close"].ewm(span=12).mean()
@@ -39,6 +43,8 @@ class MACDStrategy(Strategy):
 class RSIStrategy(Strategy):
     name = "rsi"
     description = "RSI 超买超卖反转策略（RSI<30买入，>70卖出）"
+    type = "反转"
+    tags = ["reversal", "rsi", "overbought-oversold"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         delta = df["Close"].diff()
@@ -55,6 +61,8 @@ class RSIStrategy(Strategy):
 class BollingerStrategy(Strategy):
     name = "bollinger"
     description = "布林带回归策略（价格触及下轨买入，上轨卖出）"
+    type = "均值回归"
+    tags = ["mean-reversion", "volatility", "bollinger"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         sma20 = df["Close"].rolling(20).mean()
@@ -70,6 +78,8 @@ class BollingerStrategy(Strategy):
 class IchimokuStrategy(Strategy):
     name = "ichimoku"
     description = "一目均衡表策略（转换线/基准线/云带综合判断）"
+    type = "趋势"
+    tags = ["trend", "ichimoku", "cloud"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         high_9 = df["High"].rolling(9).max()
@@ -93,6 +103,8 @@ class IchimokuStrategy(Strategy):
 class SMCStrategy(Strategy):
     name = "smc"
     description = "Smart Money Concepts 策略（订单块/流动性扫荡）"
+    type = "趋势"
+    tags = ["smart-money", "breakout", "liquidity"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         h_20 = df["High"].rolling(20).max()
@@ -106,6 +118,8 @@ class SMCStrategy(Strategy):
 class MultiFactorStrategy(Strategy):
     name = "multi_factor"
     description = "多因子评分策略（动量+低波+成交量综合打分）"
+    type = "组合"
+    tags = ["multi-factor", "scoring", "composite"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         ret_20 = df["Close"].pct_change(20)
@@ -125,6 +139,8 @@ class MultiFactorStrategy(Strategy):
 class CryptoFundingStrategy(Strategy):
     name = "crypto_funding"
     description = "加密货币资金费率套利策略（基于动量和波动率代理）"
+    type = "事件驱动"
+    tags = ["crypto", "funding-rate", "arbitrage"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         ret_8h = df["Close"].pct_change(3)
@@ -147,7 +163,9 @@ class CryptoFundingStrategy(Strategy):
 
 class ATRChannelStrategy(Strategy):
     name = "atr_channel"
-    description = "ATR 通道突破策略（基于平均真实波幅的动态通道，价格突破上轨做多）"
+    description = "ATR 通道突破策略（基于平均真实波幅的动态通道）"
+    type = "趋势"
+    tags = ["trend", "breakout", "volatility", "atr"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         high_low = df["High"] - df["Low"]
@@ -167,6 +185,8 @@ class ATRChannelStrategy(Strategy):
 class ParabolicSARStrategy(Strategy):
     name = "parabolic_sar"
     description = "Parabolic SAR 趋势跟踪策略（SAR 指标转向点判断趋势反转）"
+    type = "趋势"
+    tags = ["trend", "parabolic-sar", "stop-reversal"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         high = df["High"]
@@ -230,7 +250,9 @@ class ParabolicSARStrategy(Strategy):
 
 class ZScoreMeanReversionStrategy(Strategy):
     name = "zscore_mean_reversion"
-    description = "Z-score 均值回归策略（价格偏离均线超过 2 个标准差时反向操作）"
+    description = "Z-score 均值回归策略（价格偏离均线超 2 个标准差时反向操作）"
+    type = "均值回归"
+    tags = ["mean-reversion", "z-score", "statistical"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         ma20 = df["Close"].rolling(20).mean()
@@ -244,7 +266,9 @@ class ZScoreMeanReversionStrategy(Strategy):
 
 class PairTradingStrategy(Strategy):
     name = "pair_trading"
-    description = "配对交易策略（用大盘 ETF 做基准，个股相对强弱偏离时反向操作）"
+    description = "配对交易策略（用基准做对冲，价差偏离时反向操作）"
+    type = "均值回归"
+    tags = ["pair-trading", "market-neutral", "spread"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         # 使用 Close 作为基准，计算相对强弱
@@ -264,7 +288,9 @@ class PairTradingStrategy(Strategy):
 
 class VolumeWeightedMomentumStrategy(Strategy):
     name = "volume_weighted_momentum"
-    description = "成交量加权动量策略（价格动量用成交量加权，放量突破确认趋势）"
+    description = "成交量加权动量策略（价格动量用成交量加权确认）"
+    type = "趋势"
+    tags = ["momentum", "volume", "trend-confirmation"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         returns = df["Close"].pct_change(10)
@@ -281,7 +307,9 @@ class VolumeWeightedMomentumStrategy(Strategy):
 
 class GapFillStrategy(Strategy):
     name = "gap_fill"
-    description = "缺口回补策略（价格跳空后预期回补缺口，高开低走做空，低开高走做多）"
+    description = "缺口回补策略（跳空后预期回补，高开低走做空，低开高走做多）"
+    type = "均值回归"
+    tags = ["gap", "fill", "reversal"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         prev_close = df["Close"].shift(1)
@@ -296,7 +324,9 @@ class GapFillStrategy(Strategy):
 
 class RSIDivergenceStrategy(Strategy):
     name = "rsi_divergence"
-    description = "RSI 背离策略（价格创新低但 RSI 未创新低 → 底背离买入，反之卖出）"
+    description = "RSI 背离策略（价格与 RSI 方向不一致时捕捉转折点）"
+    type = "反转"
+    tags = ["rsi", "divergence", "reversal"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         delta = df["Close"].diff()
@@ -325,7 +355,9 @@ class RSIDivergenceStrategy(Strategy):
 
 class EarningsMomentumStrategy(Strategy):
     name = "earnings_momentum"
-    description = "财报动量策略（财报跳空后追踪趋势，利用公告后漂移效应）"
+    description = "财报动量策略（利用财报公告后的价格漂移效应）"
+    type = "事件驱动"
+    tags = ["earnings", "event-driven", "post-earnings-drift"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         # 模拟财报跳空：检测单日异常跳空（>3%）
@@ -344,7 +376,9 @@ class EarningsMomentumStrategy(Strategy):
 
 class DonchianChannelStrategy(Strategy):
     name = "donchian_channel"
-    description = "Donchian 通道突破策略（20日最高/最低价通道，突破上轨做多，下轨做空）"
+    description = "Donchian 通道突破策略（N日最高/最低价通道）"
+    type = "趋势"
+    tags = ["trend", "breakout", "channel", "donchian"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         upper = df["High"].rolling(20).max()
@@ -361,7 +395,9 @@ class DonchianChannelStrategy(Strategy):
 
 class KeltnerChannelStrategy(Strategy):
     name = "keltner_channel"
-    description = "Keltner 通道策略（EMA + ATR 通道，价格突破上轨做多，结合趋势过滤）"
+    description = "Keltner 通道策略（EMA + ATR 动态通道，结合趋势过滤）"
+    type = "趋势"
+    tags = ["trend", "channel", "keltner", "atr"]
 
     def generate_signals(self, df: pd.DataFrame) -> pd.Series:
         ema20 = df["Close"].ewm(span=20).mean()
@@ -414,4 +450,4 @@ def get_strategy(name: str) -> Strategy | None:
 
 
 def list_strategies() -> list[dict[str, Any]]:
-    return [{"name": s.name, "description": s.description} for s in _STRATEGIES.values()]
+    return [{"name": s.name, "description": s.description, "type": s.type, "tags": s.tags} for s in _STRATEGIES.values()]

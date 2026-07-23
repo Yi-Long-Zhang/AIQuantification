@@ -1,28 +1,23 @@
 <template>
   <el-card class="strategy-card" :body-style="{ padding: '20px' }" shadow="hover">
     <div class="card-content">
-      <div class="strategy-icon">
-        <el-icon :size="32" color="#58a6ff">
-          <TrendCharts />
-        </el-icon>
+      <div class="strategy-header">
+        <div class="strategy-icon">
+          <el-icon :size="28" color="#58a6ff">
+            <TrendCharts />
+          </el-icon>
+        </div>
+        <el-tag :type="tagType" size="small" class="type-tag">{{ strategy.type }}</el-tag>
       </div>
 
       <h3 class="strategy-name">{{ strategy.name }}</h3>
       <p class="strategy-desc">{{ strategy.description }}</p>
 
-      <div v-if="strategy.parameters" class="parameters">
-        <el-divider />
-        <div class="param-title">参数配置</div>
-        <div class="param-list">
-          <div
-            v-for="(value, key) in strategy.parameters"
-            :key="key"
-            class="param-item"
-          >
-            <span class="param-key">{{ key }}:</span>
-            <span class="param-value">{{ value }}</span>
-          </div>
-        </div>
+      <div v-if="strategy.tags?.length" class="tags-row">
+        <el-tag
+          v-for="tag in strategy.tags" :key="tag"
+          size="small" type="info" class="skill-tag"
+        >{{ tag }}</el-tag>
       </div>
     </div>
 
@@ -38,6 +33,7 @@
 <script setup lang="ts">
 import type { Strategy } from '@/types'
 import { TrendCharts, DataAnalysis } from '@element-plus/icons-vue'
+import { computed } from 'vue'
 
 const props = defineProps<{
   strategy: Strategy
@@ -46,6 +42,17 @@ const props = defineProps<{
 const emit = defineEmits<{
   use: [strategy: Strategy]
 }>()
+
+const tagType = computed(() => {
+  const map: Record<string, string> = {
+    '趋势': 'success',
+    '反转': 'warning',
+    '均值回归': 'danger',
+    '事件驱动': 'info',
+    '组合': 'primary',
+  }
+  return map[props.strategy.type] || ''
+})
 
 const handleUse = () => {
   emit('use', props.strategy)
@@ -56,7 +63,6 @@ const handleUse = () => {
 .strategy-card {
   background: #161b22;
   border: 1px solid #30363d;
-  cursor: pointer;
   transition: all 0.3s;
   height: 100%;
   display: flex;
@@ -73,15 +79,26 @@ const handleUse = () => {
   flex: 1;
 }
 
+.strategy-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
 .strategy-icon {
-  width: 60px;
-  height: 60px;
+  width: 50px;
+  height: 50px;
   border-radius: 12px;
   background: linear-gradient(135deg, #1f6feb 0%, #58a6ff 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 16px;
+  flex-shrink: 0;
+}
+
+.type-tag {
+  margin-left: auto;
 }
 
 .strategy-name {
@@ -89,45 +106,23 @@ const handleUse = () => {
   font-size: 18px;
   color: #c9d1d9;
   font-weight: 600;
+  text-transform: lowercase;
 }
 
 .strategy-desc {
-  margin: 0;
-  font-size: 14px;
-  color: #8b949e;
-  line-height: 1.6;
-  min-height: 42px;
-}
-
-.parameters {
-  margin-top: 16px;
-}
-
-.param-title {
+  margin: 0 0 12px;
   font-size: 13px;
   color: #8b949e;
-  margin-bottom: 8px;
-  font-weight: 500;
+  line-height: 1.5;
 }
 
-.param-list {
+.tags-row {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 4px;
 }
 
-.param-item {
-  font-size: 12px;
-  display: flex;
-  justify-content: space-between;
-}
-
-.param-key {
-  color: #8b949e;
-}
-
-.param-value {
-  color: #58a6ff;
-  font-weight: 500;
+.skill-tag {
+  margin: 2px;
 }
 </style>

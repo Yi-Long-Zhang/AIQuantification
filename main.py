@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -27,6 +27,24 @@ app.add_middleware(
 
 app.include_router(api_router)
 app.include_router(multi_agent_router)
+
+
+@app.websocket("/ws/market/{market}")
+async def ws_market(websocket, market: str):
+    """Real-time market data streaming."""
+    import uuid
+    from agent.ws import register_client, unregister_client
+    ws_id = str(uuid.uuid4())[:8]
+    await websocket.accept()
+    register_client(market, ws_id, websocket)
+    try:
+        while True:
+            # Keep alive — client sends pings
+            await websocket.receive_text()
+    except Exception:
+        pass
+    finally:
+        unregister_client(market, ws_id)
 
 
 @app.get("/")

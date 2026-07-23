@@ -28,6 +28,15 @@
       </el-row>
     </div>
 
+    <el-divider />
+    <div class="chart-section">
+      <h3>K 线图</h3>
+      <el-select v-model="chartSymbol" @change="chartKey++" placeholder="选择股票" size="small" style="width:200px;margin-bottom:12px">
+        <el-option v-for="s in chartSymbols" :key="s" :label="s" :value="s" />
+      </el-select>
+      <KlineChart v-if="chartSymbol" :key="chartKey" :symbol="chartSymbol" :market="activeMarket" />
+    </div>
+
     <!-- 详情弹窗 -->
     <el-dialog v-model="detailVisible" :title="detailItem?.symbol || '详情'" width="400px">
       <template v-if="detailItem">
@@ -56,11 +65,21 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { marketAPI } from '@/api/market'
 import type { MarketQuote } from '@/types'
 import MarketCard from '@/components/MarketCard.vue'
+import KlineChart from '@/components/KlineChart.vue'
 import { Refresh } from '@element-plus/icons-vue'
 
 const activeMarket = ref('us_stock')
 const marketData = ref<MarketQuote[]>([])
 const loading = ref(false)
+const error = ref('')
+const chartSymbol = ref('AAPL')
+const chartKey = ref(0)
+const chartSymbols: Record<string, string[]> = {
+  us_stock: ['AAPL', 'MSFT', 'GOOGL', 'NVDA', 'TSLA'],
+  cn_stock: ['600519', '000001', '300750'],
+  hk_stock: ['00700', '09988', '01810'],
+  crypto: ['BTC', 'ETH', 'BNB', 'SOL'],
+}
 let refreshTimer: number | null = null
 
 const loadMarketData = async () => {

@@ -24,6 +24,6 @@ export const marketAPI = {
   /**
    * 获取K线数据
    */
-  getKlines: (params: MarketDataRequest) =>
-    api.post<any, ApiResponse<Kline[]>>('/market/klines', params)
+  getKlines: (symbol: string, market: string = 'us_stock', interval: string = '1d', period: string = '1y') =>
+    api.post<any, ApiResponse<Kline[]>>('/market/klines', { symbol, market, interval, period })
 }

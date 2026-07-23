@@ -1,183 +1,97 @@
 # Agent 设计
 
-## ReAct 循环
+## 单 Agent：ReAct 循环
 
-Agent 使用 ReAct（Reasoning + Acting）模式，循环执行：
+`agent/core.py` → `QuantAgent.chat()`
 
 ```
-用户输入 → LLM 推理 → 需要工具？→ 是 → 执行工具 → 结果返回 LLM → 重复
+用户输入 → LLM 推理 → 需要工具？→ 执行工具 → 结果返回 LLM → 重复
                    ↓
                    否 → 返回最终答案
 ```
 
-**最大迭代**：10 次（防止无限循环）
+最大迭代 10 次。每轮 LLM 可调用多个工具，结果注入上下文后继续推理。
 
-核心代码：`agent/core.py` → `QuantAgent.chat()`
+## 多 Agent：Coordinator 调度
 
-## System Prompt
+`agent/multi_agent/coordinator.py` → `CoordinatorAgent.run_trading_cycle()`
 
-Agent 的 system prompt 由三部分拼接：
+```
+Research Phase (串行)        Strategy Phase (并行)     Risk Phase (并行)
+DataMiner → candidates ──→  Backtester            →  RiskManager
+    ↓                        PortfolioOptimizer        ↓
+MarketAnalyst                                        (approved /
+TechnicalAnalyst                                      rejected)
+FundamentalAnalyst                                          ↓
+NewsAnalyst                                          Final Decision
+     ↕                                                    ↕
+  研究结果                                            LLM 合成最终决策
+```
 
-1. **基础角色**：你是一个专业的量化交易分析师...
-2. **可用工具说明**：列出所有工具名称和用途
-3. **记忆注入**：最近 10 条历史对话
+### 8 个 Agent
+
+| Agent | 类型 | 职责 |
+|-------|------|------|
+| DataMiner | Research | 扫描候选股票，多因子评分排序 |
+| MarketAnalyst | Research | 市场趋势、板块轮动、宏观风险 |
+| TechnicalAnalyst | Research | K线技术指标、支撑阻力、买卖信号 |
+| FundamentalAnalyst | Research | 估值、成长性、财务健康度 |
+| NewsAnalyst | Research | 新闻情绪评分、事件影响分析 |
+| Backtester | Strategy | 回测验证信号显著性 |
+| PortfolioOptimizer | Strategy | 资金分配、仓位计算 |
+| RiskManager | Risk | 宪法合规、止损检查、组合风险 |
 
 ## LLM 客户端
 
-`agent/llm_client.py` 支持 4 家 LLM，全部走 OpenAI 兼容 API：
+4 家 LLM 全部走 OpenAI 兼容 API：
 
-| Provider | 默认模型 | 配置字段 |
-|----------|---------|---------|
-| deepseek | deepseek-chat | `LLM_API_KEY` |
-| openai | gpt-4o | `LLM_API_KEY` + `LLM_BASE_URL` |
-| qwen | qwen-plus | `LLM_API_KEY` |
-| gemini | gemini-2.0-flash | `LLM_API_KEY` |
+| Provider | 默认模型 |
+|----------|---------|
+| deepseek | deepseek-chat |
+| openai | gpt-4o |
+| qwen | qwen-plus |
+| gemini | gemini-2.0-flash |
 
-**Fallback 机制**：DeepSeek → OpenAI → Qwen → Gemini
-
-```python
-# 调用方式
-from agent.llm_client import LLMClient
-client = LLMClient(provider="deepseek", api_key="sk-xxx")
-response = await client.chat(messages=[{"role": "user", "content": "分析 AAPL"}])
-```
+自动 fallback：按 provider_info 列表逐一尝试，失败后切换。
 
 ## 工具系统
 
 ### 注册
 
-所有工具在 `agent/tools/` 下定义，用 `@tool` 装饰器注册：
+所有工具在 `agent/tools/` 和 `agent/broker/tools.py` 下定义，用 `@tool` 装饰器：
 
 ```python
-from agent.tools.registry import tool
-
-@tool(
-    name="get_stock_quote",
-    description="获取股票实时报价",
-    parameters={"symbol": {"description": "股票代码"}, "market": {"description": "市场: us_stock/cn_stock"}}
-)
-async def get_stock_quote(symbol: str, market: str = "us_stock") -> dict:
-    ...
+@tool(name="my_tool", description="...", parameters={...})
+async def my_tool(param: str) -> dict: ...
 ```
 
-### 注册中心
+### 工具列表（40+ 个）
 
-`agent/tools/registry.py` 维护全局字典 `_TOOL_REGISTRY`：
-
-```python
-_TOOL_REGISTRY = {
-    "get_stock_quote": {"func": <function>, "definition": <tool_def>},
-    ...
-}
-```
-
-### 导入触发
-
-`agent/tools/__init__.py` 导入所有工具模块 → 触发 `@tool` 装饰器执行 → 注册到字典。
-
-**关键**：必须在 `__init__.py` 中 import，否则工具不会被注册。
-
-### 执行
-
-Agent 调用工具时：
-
-```python
-# core.py 中
-result = await execute_tool("get_stock_quote", symbol="AAPL", market="us_stock")
-```
-
-### 工具列表（共 35 个）
-
-| 文件 | 工具 | 用途 |
+| 分类 | 工具 | 用途 |
 |------|------|------|
-| market_data.py | `get_stock_quote` | 实时报价（yfinance） |
-| market_data.py | `get_klines` | K 线数据（自动切换 US/CN/HK/Crypto） |
-| market_data.py | `get_cn_klines` | A 股 K 线（akshare） |
-| market_data.py | `get_market_overview` | 市场总览 |
-| market_data.py | `get_global_macro` | 全球宏观数据（GDP/CPI/PMI/利率等） |
-| market_data.py | `get_sector_rotation` | 板块轮动分析 |
-| hk_stock.py | `get_hk_klines` | 港股 K 线（AKShare） |
-| hk_stock.py | `get_hk_realtime` | 港股实时行情 |
-| hk_stock.py | `get_hk_index` | 港股指数（恒指/恒生科技） |
-| hk_stock.py | `get_hk_flow` | 南向/北向资金流 |
-| hk_stock.py | `get_hk_fund_flow` | 港股资金流向（机构/散户） |
-| hk_stock.py | `get_hk_valuation` | 港股估值（PE/PB/PS） |
-| crypto.py | `get_crypto_klines` | 加密货币 K 线（CCXT → yfinance → CoinGecko） |
-| crypto.py | `get_crypto_realtime` | 加密货币实时行情 |
-| crypto.py | `get_crypto_orderbook` | 买五卖五盘口 |
-| crypto.py | `get_crypto_overview` | 加密货币全市场概览 |
-| crypto.py | `get_crypto_fear_greed` | 恐惧贪婪指数 |
-| crypto.py | `get_crypto_top_coins` | 市值 Top N 排名 |
-| crypto.py | `get_crypto_funding_rate` | 永续合约资金费率 |
-| crypto.py | `get_crypto_open_interest` | 合约持仓量 |
-| crypto.py | `calculate_crypto_indicators` | 链上指标（MVRV/NVT/NUPL） |
-| alpha.py | `compute_alpha_factors` | 计算 Alpha158/Alpha101 因子 |
-| alpha.py | `evaluate_alpha_factors` | 评估因子有效性（IC/IR/Sharpe） |
-| alpha.py | `list_alpha_factors` | 列出可用因子 |
-| technical.py | `calculate_factor` | 量化因子（动量/波动率/量比/价格/SMA比） |
-| technical.py | `calculate_indicators` | 技术指标（SMA/EMA/RSI/MACD/布林带/ATR） |
-| backtest.py | `run_backtest` | 回测策略（支持滑点/手续费） |
-| backtest.py | `compare_strategies` | 策略对比 |
-| backtest.py | `monte_carlo_test` | Monte Carlo 置换检验 |
-| backtest.py | `walk_forward_test` | Walk-Forward 滚动窗口回测 |
-| risk.py | `calculate_position_size` | 仓位计算（Kelly + 风险预算） |
-| risk.py | `assess_portfolio_risk` | 组合风险（相关性/波动率） |
-| news.py | `get_stock_news` | 股票新闻 |
-| news.py | `analyze_sentiment` | 情绪分析（Fear & Greed/VIX） |
-| constitution.py | `check_constitution` | 合规检查 |
+| 市场数据 | `get_stock_quote`, `get_klines`, `get_cn_klines`, `get_market_overview`, `get_global_macro`, `get_sector_rotation` | 多市场行情 |
+| 港股 | `get_hk_klines`, `get_hk_realtime`, `get_hk_index`, `get_hk_flow`, `get_hk_fund_flow`, `get_hk_valuation` | 港股数据 |
+| 加密货币 | `get_crypto_klines`, `get_crypto_realtime`, `get_crypto_orderbook`, `get_crypto_overview`, `get_crypto_fear_greed`, `get_crypto_top_coins`, `get_crypto_funding_rate`, `get_crypto_open_interest`, `calculate_crypto_indicators` | 区块链数据 |
+| 技术分析 | `calculate_indicators`, `calculate_factor` | 指标计算 |
+| Alpha | `compute_alpha_factors`, `evaluate_alpha_factors`, `list_alpha_factors` | 251 因子 |
+| 回测 | `run_backtest`, `compare_strategies`, `monte_carlo_test`, `walk_forward_test`, `trade_attribution` | 策略评估 |
+| 风险 | `calculate_position_size`, `assess_portfolio_risk` | 风控 |
+| 新闻 | `get_stock_news`, `analyze_sentiment` | 市场情绪 |
+| 宪法 | `check_constitution` | 合规检查 |
+| 券商 | `import_trades_csv`, `analyze_trade_performance` | 交易分析 |
 
-## 技能系统
+## 技能系统（13 个技能）
 
-`agent/skills/` 使用 YAML 定义可复用分析工作流：
+`agent/skills/skills/` 使用 Markdown + YAML frontmatter 定义可复用分析工作流。每个技能指定：名称、描述、工具列表、工具参数、标签、执行逻辑 prompt。
 
-```
-agent/skills/
-├── registry.py          # 技能注册中心
-├── loader.py            # YAML 自动发现加载
-└── skills/
-    ├── hk_fund_flow.yaml      # 港股资金流分析技能
-    ├── crypto_sentiment.yaml  # 加密货币情绪分析技能
-    └── multi_market_compare.yaml # 多市场对比技能
-```
+## 因子库（251 个）
 
-## 因子库（Alpha Zoo）
-
-`agent/alpha/` 提供 251+ 量化因子：
-
-| 因子库 | 数量 | 来源 |
-|--------|------|------|
-| Alpha158 | 150 | Microsoft Qlib |
-| Alpha101 | 101 | Kakushadze 论文 |
-| **合计** | **251** | |
-
-评估指标：IC（信息系数）、IR（信息比率）、换手率、存活率、Sharpe、最大回撤
+`agent/alpha/` — Alpha158(150) + Alpha101(101)。评估指标：IC、IR、换手率、存活率。
 
 ## 记忆系统
 
-`agent/memory.py` 使用 SQLite + FTS5 全文搜索：
+SQLite + FTS5 全文搜索，支持跨会话记忆、交易记录、知识库。
 
-- **sessions** 表：会话元数据
-- **messages** 表：对话历史
-- **messages_fts**：消息全文搜索索引
-- **trades** 表：交易记录
-- **knowledge** 表：知识库
-- **knowledge_fts**：知识全文搜索索引
+## 策略系统（18 个）
 
-每次对话自动存储，下次打开同一 session 可恢复上下文。支持全文搜索历史分析。
-
-## 策略系统
-
-`agent/strategies/registry.py` 注册 8 个内置策略：
-
-| 策略 | 逻辑 |
-|------|------|
-| sma_cross | SMA 5/20 金叉死叉 |
-| macd | MACD 信号线交叉 |
-| rsi | RSI 超买超卖 |
-| bollinger | 布林带突破 |
-| ichimoku | 一目均衡表（转换线/基准线/云带） |
-| smc | Smart Money Concepts（订单块/流动性扫荡） |
-| multi_factor | 多因子评分（动量+波动率+成交量） |
-| crypto_funding | 加密货币资金费率套利 |
-
-所有策略继承自 `Strategy` ABC（`agent/strategies/base.py`），必须实现 `generate_signals(df)` 方法。
+所有策略继承 `Strategy` ABC，分类：趋势(7)、反转(3)、均值回归(4)、事件驱动(2)、组合(1)。每个策略定义：名称、类型、标签、适用市场、参数、风险等级。

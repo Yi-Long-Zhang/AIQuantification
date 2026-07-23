@@ -3,94 +3,89 @@
 ## 分层结构
 
 ```
-┌─────────────────────────────────────────────────┐
-│                   FastAPI                        │
-│               main.py + api/routes.py            │
-│              (HTTP 接口、静态文件)                │
-├─────────────────────────────────────────────────┤
-│                  Agent 层                        │
-│            agent/core.py (ReAct 循环)            │
-│         agent/llm_client.py (多 LLM 客户端)      │
-│            agent/memory.py (SQLite 记忆)          │
-├─────────────────────────────────────────────────┤
-│              工具层 (agent/tools/)                │
-│  market_data.py │ backtest.py │ technical.py     │
-│  risk.py │ news.py │ constitution.py │ registry.py│
-├─────────────────────────────────────────────────┤
-│            策略层 (agent/strategies/)             │
-│        sma_cross │ macd │ rsi │ bollinger        │
-├─────────────────────────────────────────────────┤
-│           数据层 (外部 API)                       │
-│       yfinance │ akshare │ newsapi.org           │
-└─────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│               API 层 (FastAPI)                           │
+│  api/routes.py + api/multi_agent_routes.py               │
+│  (40+ HTTP 端点)                                         │
+├─────────────────────────────────────────────────────────┤
+│              Agent 层                                    │
+│  agent/core.py (QuantAgent ReAct)                        │
+│  agent/multi_agent/coordinator.py (8 Agent 调度)          │
+│  agent/llm_client.py (4 LLM 提供商)                       │
+│  agent/memory.py (SQLite + FTS5)                         │
+│  agent/skills/ (13 个技能)                                │
+├─────────────────────────────────────────────────────────┤
+│            工具层 (agent/tools/ — 40+ 工具)                │
+│  market_data · crypto · hk_stock · technical · alpha     │
+│  backtest · risk · news · constitution                  │
+├─────────────────────────────────────────────────────────┤
+│          策略层 (agent/strategies/ — 18 策略)             │
+│  趋势/反转/均值回归/事件驱动/组合                          │
+├─────────────────────────────────────────────────────────┤
+│          券商层 (agent/broker/)                           │
+│  Alpaca (REST) · IBKR (ib_insync) · Shadow Account       │
+├─────────────────────────────────────────────────────────┤
+│        基础设施 (agent/data/ + agent/notify/)              │
+│  数据源框架 · Telegram · Webhook                          │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## 依赖关系
+## 规则
 
-```
-api/routes.py
-  ↓
-agent/core.py (QuantAgent)
-  ├── agent/llm_client.py (LLM 调用)
-  ├── agent/memory.py (会话记忆)
-  ├── agent/tools/registry.py (工具调度)
-  │   ├── market_data.py → yfinance, akshare
-  │   ├── technical.py → 原生技术指标实现
-  │   ├── backtest.py → numpy, pandas
-  │   ├── risk.py → numpy
-  │   └── news.py → newsapi.org
-  └── agent/strategies/registry.py → 策略定义
-```
-
-**规则**：只能上层调用下层，不能跨层或反向调用。
+只能上层调用下层，禁止跨层或反向调用：
+- ✅ `api/` → `agent/`
+- ✅ `agent/` → `agent/tools/` / `agent/strategies/` / `agent/broker/`
+- ✅ `agent/tools/` → 外部库
+- ❌ `api/` → 直接调用外部库
+- ❌ `agent/tools/` → `api/`
 
 ## 技术栈
 
 | 用途 | 库 |
 |------|-----|
 | Web 框架 | FastAPI + uvicorn |
-| LLM 调用 | openai (兼容 DeepSeek/OpenAI/Qwen/Gemini) |
+| LLM | openai SDK (DeepSeek/OpenAI/Qwen/Gemini) |
 | 美股数据 | yfinance |
-| A股数据 | akshare |
-| 技术指标 | 原生实现 |
-| 数值计算 | numpy, pandas |
-| 记忆存储 | SQLite (agent/memory.py) |
-| 配置管理 | PyYAML → Settings 对象 |
-
-## 数据流示例：用户问 "分析 AAPL"
-
-```
-1. POST /agent/chat  {"query": "分析 AAPL"}
-2. routes.py → QuantAgent.chat("分析 AAPL", session_id)
-3. core.py 构建 messages（system prompt + 历史 + 用户问题）
-4. LLM 返回 → 需要调用工具 → tool_calls: [get_stock_quote, calculate_indicators]
-5. core.py 执行工具 → 返回工具结果给 LLM
-6. LLM 综合分析 → 返回最终回答
-7. 响应: {"answer": "AAPL 当前价格... 技术面...", "session_id": "xxx"}
-```
+| A股/港股数据 | akshare |
+| 加密货币 | ccxt + pycoingecko |
+| 券商 API | httpx (Alpaca REST) + ib_insync (IBKR) |
+| 数值计算 | numpy, pandas, scipy |
+| 记忆存储 | SQLite + FTS5 (aiosqlite) |
+| 配置 | PyYAML → Settings |
+| 限流 | slowapi |
+| 前端 | Vue 3 + TypeScript + Vite + Element Plus + Pinia |
 
 ## 目录结构
 
 ```
 AIQuantification/
-├── main.py              # FastAPI 入口
-├── config.yaml          # 用户配置（git ignored）
-├── config.yaml.example  # 配置模板
-├── pyproject.toml       # uv 项目配置
-├── AGENTS.md            # AI 开发宪法
+├── main.py                    # FastAPI 入口
+├── config.yaml.example        # 配置模板
 ├── agent/
-│   ├── config.py        # Settings（读 config.yaml）
-│   ├── core.py          # QuantAgent（ReAct 核心）
-│   ├── llm_client.py    # 多 LLM 客户端
-│   ├── memory.py        # SQLite 记忆
-│   ├── tools/           # 工具集（@tool 装饰器）
-│   └── strategies/      # 策略定义 + 注册
+│   ├── config.py              # Settings
+│   ├── core.py                # QuantAgent
+│   ├── llm_client.py          # LLM 客户端
+│   ├── memory.py              # SQLite + FTS5
+│   ├── tools/                 # 40+ @tool
+│   ├── strategies/            # 18 策略
+│   ├── alpha/                 # 251 因子 (Alpha158 + Alpha101)
+│   ├── skills/                # 13 技能
+│   ├── multi_agent/           # 8 Agent
+│   │   ├── research/          # 5 Research Agent
+│   │   ├── strategy/          # Backtester + Portfolio
+│   │   └── risk/              # RiskManager
+│   ├── broker/                # Alpaca + IBKR + Shadow
+│   ├── data/                  # 数据源框架
+│   └── notify/                # Telegram + Webhook
 ├── api/
-│   └── routes.py        # 所有 API 路由
-├── models/
-│   └── schemas.py       # Pydantic 数据模型
-├── web/
-│   ├── index.html       # 聊天 Web UI
-│   └── static/          # CSS/JS
-└── docs/                # 文档
+│   ├── routes.py              # 单 Agent + Market + Backtest + Broker
+│   └── multi_agent_routes.py  # 多 Agent API
+├── models/schemas.py          # Pydantic 模型
+├── tests/                     # 280+ 测试
+├── web/                       # Vue 3 前端
+│   └── src/
+│       ├── views/             # 7 个页面
+│       ├── components/        # 5 个组件
+│       └── api/               # Axios 封装
+└── docs/                      # 文档
 ```

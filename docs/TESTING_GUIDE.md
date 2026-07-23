@@ -1,306 +1,62 @@
-# 🧪 第三阶段前端测试指南
+# 测试指南
 
-## 环境检查结果 ✅
+## 运行测试
 
-```
-✓ Node.js: v24.16.0
-✓ npm: v11.13.0
-✓ 前端目录: web/ (已创建)
-✓ 文件数量: 24 个
-✗ 后端服务: 未运行
-```
-
----
-
-## 快速开始测试
-
-### 方法 1: 使用自动化脚本（推荐）
-
-**Windows:**
 ```bash
-# 运行测试脚本（会自动启动后端+前端）
-test_frontend.bat
+# 全部后端测试
+cd AIQuantification
+.venv/Scripts/python.exe -m pytest tests/ -v
+
+# 单模块测试
+.venv/Scripts/python.exe -m pytest tests/test_api.py -v
+.venv/Scripts/python.exe -m pytest tests/test_broker.py -v
+.venv/Scripts/python.exe -m pytest tests/test_memory.py -v
+
+# 前端测试
+cd web
+npm test          # vitest run（一次性）
+npm run test:watch  # vitest（监听模式）
 ```
 
-**Linux/Mac:**
-```bash
-# 运行测试脚本
-./test_frontend.sh
-```
+## 测试覆盖
 
-脚本会自动：
-1. ✅ 启动后端服务（端口 8000）
-2. ✅ 检查后端健康状态
-3. ✅ 安装前端依赖（如果未安装）
-4. ✅ 启动前端开发服务器（端口 5173）
-5. ✅ 打开浏览器访问 http://localhost:5173
+| 模块 | 测试文件 | 测试数 |
+|------|---------|--------|
+| API 路由 | test_api.py | 35 |
+| Agent 核心 | test_core.py, test_base_agent.py | 15+ |
+| 多 Agent | test_research_agents.py, test_communication.py, test_strategy_risk_agents.py | 56 |
+| 工具 | test_technical.py, test_risk.py, test_backtest.py | 20+ |
+| 券商 | test_broker.py, test_broker_registry.py, test_broker_alpaca.py, test_broker_ibkr.py | 46 |
+| Shadow Account | test_broker_shadow.py | 14 |
+| 记忆 | test_memory.py, test_fts5.py | 13 |
+| 技能 | test_skills.py, test_skill_loader.py | 9 |
+| 数据+通知 | test_data_notify.py | 8 |
+| 策略 | test_deep_coverage.py | 18 |
+| 前端 | api/index.test.ts, format.test.ts, sse.test.ts, ChatMessage.test.ts | 31 |
+| **合计** | | **280+** |
 
----
+## 测试类型
 
-### 方法 2: 手动启动
+| 类型 | 工具 | 用途 |
+|------|------|------|
+| 单元测试 | pytest | 函数/类级别 |
+| 集成测试 | pytest + TestClient | API 端点 |
+| 异步测试 | pytest-asyncio | async 函数 |
+| HTTP Mock | respx | 券商 API mock |
+| 前端测试 | vitest + jsdom | Vue 组件 + TS 工具 |
 
-**终端 1 - 启动后端:**
-```bash
-cd C:/code/PycharmProjects/AIQuantification
-python -m uvicorn main:app --host 127.0.0.1 --port 8000 --reload
-```
+## 添加新测试
 
-**终端 2 - 启动前端:**
-```bash
-cd C:/code/PycharmProjects/AIQuantification/web
-
-# 首次运行需要安装依赖
-npm install
-
-# 启动开发服务器
-npm run dev
-```
-
-**浏览器:**
-访问 http://localhost:5173
-
----
-
-## 📋 测试检查清单
-
-### ✅ 基础功能测试（10分钟）
-
-#### 1. 页面路由测试
-- [ ] 访问根路径 `/` 自动跳转到 `/chat`
-- [ ] 点击侧边栏 "AI 对话" 进入 `/chat`
-- [ ] 点击侧边栏 "市场仪表盘" 进入 `/dashboard`
-- [ ] 点击侧边栏 "策略回测" 进入 `/backtest`
-- [ ] 点击侧边栏 "策略库" 进入 `/strategies`
-
-#### 2. AI 对话测试
-**测试输入:**
-```
-1. "你好"
-2. "分析 AAPL 的技术面"
-3. "比较 BTC 和 ETH 的走势"
-```
-
-**检查点:**
-- [ ] 消息正确显示（用户蓝色，AI灰色）
-- [ ] 显示"AI 分析中..."加载提示
-- [ ] 文字逐字显示（流式效果）
-- [ ] Markdown 格式正确（代码、列表等）
-- [ ] Ctrl+Enter 可以发送消息
-- [ ] 清空对话功能正常
-
-#### 3. 市场仪表盘测试
-- [ ] 切换市场标签（美股/A股/港股/加密货币）
-- [ ] 显示行情卡片（代码、价格、涨跌、成交量）
-- [ ] 涨跌颜色正确（绿涨红跌）
-- [ ] 点击刷新按钮可更新数据
-- [ ] 卡片悬停有效果
-
-#### 4. 策略回测测试
-**测试步骤:**
-```
-1. 选择策略: "sma_crossover"
-2. 输入股票: "AAPL"
-3. 日期: 2023-01-01 到 2024-01-01
-4. 初始资金: 100000
-5. 点击"开始回测"
-```
-
-**检查点:**
-- [ ] 策略列表正常加载
-- [ ] 表单验证工作（不填字段会提示）
-- [ ] 回测结果表格显示
-- [ ] 统计汇总正确
-- [ ] 导出 CSV 功能正常
-
-#### 5. 策略库测试
-- [ ] 显示所有策略卡片
-- [ ] 卡片显示名称、描述、参数
-- [ ] 点击"使用此策略"跳转到回测页
-
----
-
-### 🎨 UI/UX 测试（5分钟）
-
-#### 视觉效果
-- [ ] Dark 主题正确应用
-- [ ] 字体清晰可读
-- [ ] 间距合理
-- [ ] 图标正确显示
-
-#### 交互反馈
-- [ ] 按钮有悬停效果
-- [ ] 加载状态显示
-- [ ] Toast 提示正常
-- [ ] 表单错误提示清晰
-
-#### 响应式设计
-调整浏览器窗口大小：
-- [ ] 宽屏（>1200px）：4列布局
-- [ ] 中屏（768-1200px）：2-3列布局
-- [ ] 窄屏（<768px）：1列布局
-
----
-
-### 🔌 API 集成测试（5分钟）
-
-#### 成功场景
-- [ ] 对话返回正常
-- [ ] 市场数据加载成功
-- [ ] 回测执行成功
-- [ ] 策略列表获取成功
-
-#### 错误场景
-**测试方法:** 关闭后端，发送请求
-
-- [ ] 显示错误提示（Toast）
-- [ ] 不会崩溃
-- [ ] 错误信息清晰
-
----
-
-### ⚙️ 配置测试（3分钟）
-
-#### API Key 配置
-1. [ ] 点击侧边栏"设置"按钮
-2. [ ] 输入 API Key: `test-key-12345`
-3. [ ] 点击"保存"
-4. [ ] 显示"设置已保存"提示
-5. [ ] 刷新页面，配置保持
-
----
-
-## 🐛 常见问题排查
-
-### 问题 1: npm install 失败
-```bash
-# 清除缓存
-npm cache clean --force
-
-# 删除 node_modules 重新安装
-rm -rf node_modules package-lock.json
-npm install
-```
-
-### 问题 2: 端口冲突
-```bash
-# 检查端口占用
-netstat -ano | findstr :5173
-netstat -ano | findstr :8000
-
-# 杀掉占用进程（Windows）
-taskkill /PID <PID> /F
-```
-
-### 问题 3: 后端 CORS 错误
-确保后端 `main.py` 包含：
 ```python
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# tests/test_my_module.py
+import pytest
+
+def test_my_function():
+    result = my_function(1, 2)
+    assert result == 3
+
+@pytest.mark.asyncio
+async def test_my_async():
+    result = await my_async_function()
+    assert result is not None
 ```
-
-### 问题 4: TypeScript 错误
-```bash
-# 跳过类型检查直接运行
-npm run dev -- --force
-```
-
-### 问题 5: 页面空白
-1. 打开浏览器控制台（F12）
-2. 查看 Console 错误信息
-3. 查看 Network 请求状态
-
----
-
-## 📊 预期测试结果
-
-### 成功标准
-- ✅ 所有页面正常显示
-- ✅ 路由切换流畅
-- ✅ AI 对话流式响应正常
-- ✅ 市场数据可以获取
-- ✅ 回测功能完整
-- ✅ 无控制台错误
-
-### 可接受的问题
-- ⚠️ 某些数据源暂时无法访问（网络问题）
-- ⚠️ 首次加载稍慢（依赖下载）
-- ⚠️ 部分样式在不同浏览器有细微差异
-
-### 不可接受的问题
-- ❌ 页面无法打开
-- ❌ JavaScript 错误导致崩溃
-- ❌ API 请求全部失败
-- ❌ 路由完全不工作
-
----
-
-## 🎯 快速测试流程（5分钟版）
-
-1. **启动服务** (1分钟)
-   ```bash
-   test_frontend.bat  # 或 ./test_frontend.sh
-   ```
-
-2. **测试对话** (2分钟)
-   - 输入: "你好"
-   - 输入: "分析 AAPL"
-   - 检查流式响应
-
-3. **测试仪表盘** (1分钟)
-   - 切换市场标签
-   - 查看数据显示
-
-4. **测试回测** (1分钟)
-   - 选择策略
-   - 输入 "AAPL"
-   - 运行回测
-
-**结果:** 如果以上都正常，说明前端功能完整！
-
----
-
-## 📝 测试报告模板
-
-```markdown
-## 测试日期: 2026-07-15
-## 测试环境:
-- Node.js: v24.16.0
-- npm: v11.13.0
-- 浏览器: Chrome v___
-- 操作系统: Windows 11
-
-## 测试结果:
-✅ 页面路由: 正常
-✅ AI 对话: 正常
-✅ 市场仪表盘: 正常
-✅ 策略回测: 正常
-✅ 策略库: 正常
-
-## 发现的问题:
-无 / [描述问题]
-
-## 总体评价:
-前端功能完整，可以进入下一阶段开发。
-```
-
----
-
-## 🚀 下一步
-
-测试通过后，你可以：
-
-1. **继续开发 Week 7-8: 多Agent协作系统**
-2. **完善前端功能**
-   - 添加 K线图表
-   - 优化加载动画
-   - 添加更多交互细节
-3. **部署到生产环境**
-
----
-
-**现在可以运行测试了！执行 `test_frontend.bat` 开始测试。**

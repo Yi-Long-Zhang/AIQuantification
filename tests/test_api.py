@@ -125,15 +125,17 @@ class TestMarketEndpoints:
 
 class TestStrategyEndpoints:
     def test_list_strategies_count(self, client):
-        """GET /strategies — 返回 8 个策略"""
+        """GET /strategies — 返回 18 个策略"""
         response = client.get("/strategies")
         assert response.status_code == 200
         data = response.json()
-        assert len(data["strategies"]) == 8
+        assert len(data["strategies"]) == 18
         names = [s["name"] for s in data["strategies"]]
         assert "sma_cross" in names
         assert "ichimoku" in names
         assert "crypto_funding" in names
+        assert "atr_channel" in names
+        assert "donchian_channel" in names
 
 
 # ─── Skill endpoints ─────────────────────────────────────────────────────────

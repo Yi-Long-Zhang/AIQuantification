@@ -117,7 +117,7 @@ except Exception as e:
 ```
 提交流程（严格按此顺序）：
 1. 检查当前分支 → 如果在 main 上，先 git checkout -b feature/<名称>
-2. 在 feature/fix 分支上开发和自动提交（git add + git commit）
+2. 在 feature 分支上开发和自动提交（git add + git commit）
 3. 开发完成后切回 main → git merge --no-ff <分支名>
 4. 保留分支，不删除
 ```
@@ -125,8 +125,9 @@ except Exception as e:
 具体规则：
 
 - `main`：稳定分支，只通过 `git merge --no-ff` 进入，**禁止直接提交**
-- 功能开发使用 `feature/<描述>` 分支（如 `feature/phase3-frontend`）
-- 修复使用 `fix/<描述>` 分支
+- 所有分支统一使用 `feature/` 前缀，禁止使用 `fix/`、`docs/` 等其他前缀
+- 分支名必须包含序号：`feature/phase<序号>-<描述>`（如 `feature/phase14-performance`）
+- 序号接续现有最大序号递增，禁止重复
 - 禁止以"改动太小"为由跳过分支流程
 
 ### 5.2 提交格式

@@ -110,12 +110,24 @@ except Exception as e:
 
 ## 五、Git 提交
 
-### 5.1 分支策略
+### 5.1 分支策略（强制前置约束）
 
-- `main`：稳定分支，只通过 PR/Merge 进入，禁止直接提交
+**所有修改必须先建分支，再在分支上提交，最后合并到 `main`。没有例外（包括文档、小修复、配置修改）。**
+
+```
+提交流程（严格按此顺序）：
+1. 检查当前分支 → 如果在 main 上，先 git checkout -b feature/<名称>
+2. 在 feature/fix 分支上开发和自动提交（git add + git commit）
+3. 开发完成后切回 main → git merge --no-ff <分支名>
+4. 保留分支，不删除
+```
+
+具体规则：
+
+- `main`：稳定分支，只通过 `git merge --no-ff` 进入，**禁止直接提交**
 - 功能开发使用 `feature/<描述>` 分支（如 `feature/phase3-frontend`）
 - 修复使用 `fix/<描述>` 分支
-- 开发完成后合并到 `main`，**保留分支，不删除**
+- 禁止以"改动太小"为由跳过分支流程
 
 ### 5.2 提交格式
 
@@ -127,7 +139,7 @@ type: feat / fix / docs / refactor / test / style / chore
 
 - 每个提交只做一件事
 - 提交前验证：`python -m py_compile`
-- **每次修改后自动提交**：AI 完成实现后必须立即执行 `git add` + `git commit`，不得等待用户要求
+- **每次修改后自动提交**：AI 完成实现后必须在 feature/fix 分支上执行 `git add` + `git commit`，不得等待用户要求
 - 禁止提交 `__pycache__/`、`config.yaml`、`.aiquantification/`
 
 ---

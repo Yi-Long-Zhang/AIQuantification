@@ -3,7 +3,8 @@
  */
 
 export interface SSEOptions {
-  onMessage?: (data: any) => void
+  /** 消息回调，收到的是 JSON.parse 后的数据 */
+  onMessage?: (data: unknown) => void
   onError?: (error: Event) => void
   onOpen?: () => void
   onClose?: () => void

@@ -194,15 +194,16 @@ import {
   Refresh, VideoPlay, UserFilled, ChatLineRound
 } from '@element-plus/icons-vue'
 import api from '@/api'
+import type { MultiAgentStatus, AgentMessage, CycleResult } from '@/types'
 
 // ── State ──────────────────────────────────────────────
 const loading      = ref(false)
 const cycleRunning = ref(false)
-const status       = ref<any>({})
-const brokerStats  = ref<any>()
-const messages     = ref<any[]>([])
+const status       = ref<MultiAgentStatus>({} as MultiAgentStatus)
+const brokerStats  = ref<Record<string, unknown>>()
+const messages     = ref<AgentMessage[]>([])
 const selectedAgent = ref<string | null>(null)
-const lastCycleResult = ref<any>(null)
+const lastCycleResult = ref<CycleResult | null>(null)
 let pollTimer: number | null = null
 
 // ── Computed ───────────────────────────────────────────
@@ -239,8 +240,8 @@ const runCycle = async () => {
     lastCycleResult.value = res
     ElMessage.success('交易周期完成')
     await refreshStatus()
-  } catch (e: any) {
-    ElMessage.error('交易周期失败: ' + (e.message ?? ''))
+  } catch (e: unknown) {
+    ElMessage.error('交易周期失败: ' + ((e instanceof Error ? e.message : '') ?? ''))
   } finally {
     cycleRunning.value = false
   }

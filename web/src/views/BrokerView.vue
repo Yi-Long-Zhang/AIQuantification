@@ -77,9 +77,10 @@
 import { ref, onMounted, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import { brokerAPI } from '@/api/broker'
+import type { BrokerInfo, BrokerStatusResponse } from '@/types'
 
-const brokers = ref<any[]>([])
-const statuses = reactive<Record<string, any>>({})
+const brokers = ref<BrokerInfo[]>([])
+const statuses = reactive<Record<string, BrokerStatusResponse>>({})
 const loading = ref(false)
 const connecting = ref<string | null>(null)
 

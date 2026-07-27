@@ -138,6 +138,8 @@ class AsyncAgentMemory:
     async def _get_conn(self) -> aiosqlite.Connection:
         if self._conn is None:
             self._conn = await aiosqlite.connect(self._db_path)
+            await self._conn.execute("PRAGMA journal_mode=WAL")
+            await self._conn.execute("PRAGMA synchronous=NORMAL")
             await self._init_db(self._conn)
         return self._conn
 

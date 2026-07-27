@@ -1,5 +1,5 @@
 import api from './index'
-import type { ApiResponse } from '@/types'
+import type { ApiResponse, Thought } from '@/types'
 
 export interface ChatRequest {
   query: string
@@ -9,19 +9,15 @@ export interface ChatRequest {
 export interface ChatResponse {
   answer: string
   session_id: string
-  thoughts?: any[]
+  thoughts?: Thought[]
 }
 
 export const agentAPI = {
-  /**
-   * 普通对话
-   */
+  /** 普通对话 */
   chat: (data: ChatRequest) =>
-    api.post<any, ChatResponse>('/agent/chat', data),
+    api.post<ChatRequest, ChatResponse>('/agent/chat', data),
 
-  /**
-   * 流式对话 (SSE)
-   */
+  /** 流式对话 (SSE) */
   chatStream: (data: ChatRequest): EventSource => {
     const sessionId = data.session_id || crypto.randomUUID()
     const params = new URLSearchParams({
@@ -32,9 +28,7 @@ export const agentAPI = {
     return new EventSource(`/agent/chat/stream?${params}`)
   },
 
-  /**
-   * 获取可用工具列表
-   */
+  /** 获取可用工具列表 */
   getTools: () =>
-    api.get<any, ApiResponse<{ tools: string[], count: number }>>('/agent/tools')
+    api.get<never, ApiResponse<{ tools: string[]; count: number }>>('/agent/tools')
 }

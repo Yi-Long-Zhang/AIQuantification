@@ -1,16 +1,25 @@
 import api from './index'
+import type {
+  BrokerStatusResponse,
+  BrokerConnectResult,
+  BrokerOrdersResponse,
+  BrokerListResponse,
+} from '@/types'
 
 export const brokerAPI = {
   /** 获取券商列表 */
-  listBrokers: () => api.get<any, { brokers: any[]; count: number }>('/broker/list'),
+  listBrokers: () =>
+    api.get<never, BrokerListResponse>('/broker/list'),
 
   /** 获取券商状态 */
-  getBrokerStatus: (name: string) => api.get<any, any>(`/broker/${name}/status`),
+  getBrokerStatus: (name: string) =>
+    api.get<never, BrokerStatusResponse>(`/broker/${name}/status`),
 
   /** 连接券商 */
-  connectBroker: (name: string) => api.post<any, any>(`/broker/${name}/connect`),
+  connectBroker: (name: string) =>
+    api.post<never, BrokerConnectResult>(`/broker/${name}/connect`),
 
   /** 获取订单 */
   getOrders: (name: string, status?: string) =>
-    api.get<any, any>(`/broker/${name}/orders`, { params: { status } }),
+    api.get<never, BrokerOrdersResponse>(`/broker/${name}/orders`, { params: { status } }),
 }

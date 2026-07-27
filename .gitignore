@@ -53,8 +53,12 @@ Thumbs.db
 
 # Project specific
 tool_execution_*.json
+# CLI tool
 .claude/sessions/
 .claude/worktrees/
+
+# Reasonix local metadata
+.reasonix/
 
 # Node (for web/)
 node_modules/

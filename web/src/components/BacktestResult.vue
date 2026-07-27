@@ -139,10 +139,6 @@ function drawEquity() {
   equityChart.timeScale().fitContent()
 }
 
-const props = defineProps<{
-  results: BacktestResult[]
-}>()
-
 // 表格行类名
 const tableRowClassName = ({ row }: { row: BacktestResult }) => {
   return row.total_return >= 0 ? 'success-row' : 'danger-row'

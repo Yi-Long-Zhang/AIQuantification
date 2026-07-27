@@ -10,8 +10,8 @@ export interface Message {
 // 工具调用
 export interface ToolCall {
   tool: string
-  args: Record<string, any>
-  result?: any
+  args: Record<string, unknown>
+  result?: unknown
 }
 
 // 市场行情
@@ -56,7 +56,7 @@ export interface Strategy {
   markets?: string[]
   params?: Record<string, string>
   risk_level?: string
-  parameters?: Record<string, any>
+  parameters?: Record<string, string | number | boolean>
 }
 
 // 技能信息
@@ -64,14 +64,126 @@ export interface Skill {
   name: string
   description: string
   tools: string[]
-  tool_params: Record<string, any>
+  tool_params: Record<string, unknown>
   prompt_template: string
   tags: string[]
 }
 
 // API响应
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T> {
   data?: T
   error?: string
   message?: string
+}
+
+// ── Broker 类型 ──────────────────────────────────────────────────────────────
+
+/** 券商列表条目 */
+export interface BrokerInfo {
+  name: string
+  connected: boolean
+}
+
+/** 账户信息 */
+export interface BrokerAccount {
+  broker: string
+  account_id: string
+  cash: number
+  equity: number
+  buying_power: number
+  currency: string
+  status: string
+  timestamp: string
+}
+
+/** 持仓信息 */
+export interface BrokerPosition {
+  symbol: string
+  qty: number
+  avg_entry_price: number
+  current_price: number
+  market_value: number
+  unrealized_pl: number
+  unrealized_pl_pct: number
+  asset_class: string
+}
+
+/** 订单信息 */
+export interface BrokerOrder {
+  order_id: string
+  symbol: string
+  side: string
+  qty: number
+  filled_qty: number
+  price: number | null
+  avg_fill_price: number | null
+  status: string
+  type: string
+  created_at: string
+}
+
+/** 券商状态响应 */
+export interface BrokerStatusResponse {
+  name: string
+  connected: boolean
+  error?: string
+  account?: BrokerAccount
+  positions?: BrokerPosition[]
+}
+
+/** 券商连接结果 */
+export interface BrokerConnectResult {
+  name: string
+  connected: boolean
+}
+
+/** 券商列表响应 */
+export interface BrokerListResponse {
+  brokers: BrokerInfo[]
+  count: number
+}
+
+/** 券商订单列表响应 */
+export interface BrokerOrdersResponse {
+  orders: BrokerOrder[]
+  count: number
+}
+
+// ── Agent 类型 ───────────────────────────────────────────────────────────────
+
+/** 工具调用思维 */
+export interface Thought {
+  tool: string
+  args: Record<string, unknown>
+  result?: unknown
+  timestamp?: number
+}
+
+// ── Multi-Agent 类型 ─────────────────────────────────────────────────────────
+
+/** 多 Agent 状态 */
+export interface MultiAgentStatus {
+  coordinator: string
+  agents: Record<string, string>
+  execution_summary?: Record<string, unknown>
+  cycle_count?: number
+  last_cycle_time?: string
+}
+
+/** 多 Agent 消息 */
+export interface AgentMessage {
+  id: string
+  from: string
+  to: string
+  type: string
+  content: string
+  timestamp: string
+}
+
+/** 交易周期结果 */
+export interface CycleResult {
+  status: string
+  decisions?: Record<string, unknown>
+  summary?: string
+  errors?: string[]
 }

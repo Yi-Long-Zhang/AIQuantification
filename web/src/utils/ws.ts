@@ -2,7 +2,8 @@
  * WebSocket 客户端 — 实时行情数据
  */
 
-export type WSCallback = (data: any) => void
+/** WebSocket 消息回调，收到的是 JSON.parse 后的数据 */
+export type WSCallback = (data: unknown) => void
 
 export class MarketWS {
   private ws: WebSocket | null = null

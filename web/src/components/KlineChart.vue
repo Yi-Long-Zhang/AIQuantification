@@ -26,6 +26,7 @@ import {
   ColorType
 } from 'lightweight-charts'
 import { marketAPI } from '@/api/market'
+import type { KlineRow } from '@/api/market'
 
 const props = defineProps<{ symbol: string; market?: string; livePrice?: number | null }>()
 
@@ -59,7 +60,7 @@ watch([showMACD, showRSI], () => loadData())
 const loadData = async () => {
   try {
     const res = await marketAPI.getKlines(props.symbol, props.market || 'us_stock', interval.value, '1y')
-    const raw = (res as any)?.data || (res as any)
+    const raw: KlineRow[] = Array.isArray(res) ? res : ((res as unknown) as Record<string, unknown>)?.data as KlineRow[] | undefined ?? []
     const data = Array.isArray(raw) ? raw : []
     if (!data.length) return
 
@@ -72,7 +73,7 @@ const loadData = async () => {
     let sum20 = 0; let ema12 = 0; let ema26 = 0; let dea = 0
     const gains: number[] = []; const losses: number[] = []
 
-    data.forEach((d: any, i: number) => {
+    data.forEach((d: KlineRow, i: number) => {
       const time = String(d.Date || d.date || d.time || '').slice(0, 10)
       const open = Number(d.Open || d.open || 0)
       const high = Number(d.High || d.high || 0)

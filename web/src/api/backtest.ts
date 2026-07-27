@@ -7,19 +7,15 @@ export interface BacktestRequest {
   start_date: string
   end_date: string
   initial_capital: number
-  parameters?: Record<string, any>
+  parameters?: Record<string, string | number | boolean>
 }
 
 export const backtestAPI = {
-  /**
-   * 获取策略列表
-   */
+  /** 获取策略列表 */
   getStrategies: () =>
-    api.get<any, ApiResponse<{ strategies: Strategy[] }>>('/strategies'),
+    api.get<never, ApiResponse<{ strategies: Strategy[] }>>('/strategies'),
 
-  /**
-   * 运行回测
-   */
+  /** 运行回测 */
   runBacktest: (data: BacktestRequest) =>
-    api.post<any, BacktestResult[]>('/backtest', data)
+    api.post<BacktestRequest, BacktestResult[]>('/backtest', data)
 }

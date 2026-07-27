@@ -1,8 +1,8 @@
 # AI量化交易系统
 
 **项目状态**: 🟢 生产就绪  
-**版本**: v2.0.0  
-**最后更新**: 2026-07-23
+**版本**: v2.1.0  
+**最后更新**: 2026-07-27
 
 ---
 
@@ -17,9 +17,11 @@
 - **251个Alpha因子** - Alpha101 + Alpha158
 - **8个AI Agent** - 5 Research Agent + Backtester + PortfolioOptimizer + RiskManager
 - **13个AI技能** - 行业轮动、跨市场套利、财报解读、形态识别等
-- **Vue 3前端** - 7个页面现代化交互界面
+- **Vue 3前端** - 7个页面现代化交互界面（TypeScript 全类型化，零 any）
 - **券商连接** - Alpaca + IBKR + Shadow Account
 - **通知系统** - Telegram + Webhook
+- **TTL 数据缓存** - 5种数据粒度的内存缓存层，减少重复 API 调用
+- **LLM 指数退避重试** - 失败自动重试 3 次（2s/4s/8s + jitter）后切换 fallback
 
 ---
 

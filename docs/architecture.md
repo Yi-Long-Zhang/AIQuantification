@@ -19,6 +19,9 @@
 │  market_data · crypto · hk_stock · technical · alpha     │
 │  backtest · risk · news · constitution                  │
 ├─────────────────────────────────────────────────────────┤
+│          缓存层 (agent/tools/cache.py)                    │
+│  TTL 内存缓存：K线5m / 报价30s / 概览1m / 盘口10s       │
+├─────────────────────────────────────────────────────────┤
 │          策略层 (agent/strategies/ — 18 策略)             │
 │  趋势/反转/均值回归/事件驱动/组合                          │
 ├─────────────────────────────────────────────────────────┤
@@ -50,7 +53,8 @@
 | 加密货币 | ccxt + pycoingecko |
 | 券商 API | httpx (Alpaca REST) + ib_insync (IBKR) |
 | 数值计算 | numpy, pandas, scipy |
-| 记忆存储 | SQLite + FTS5 (aiosqlite) |
+| 记忆存储 | SQLite + FTS5 (aiosqlite, WAL 模式) |
+| 数据缓存 | TTL 内存缓存 (agent/tools/cache.py) |
 | 配置 | PyYAML → Settings |
 | 限流 | slowapi |
 | 前端 | Vue 3 + TypeScript + Vite + Element Plus + Pinia |

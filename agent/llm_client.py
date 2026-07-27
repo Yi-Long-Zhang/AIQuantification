@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
+import random
 from typing import Any, AsyncIterator
 
 import httpx
@@ -140,18 +142,21 @@ class LLMClient:
             return data
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"LLM API error: {e.response.status_code} - {e.response.text}")
-            if self.fallback_client:
-                logger.info("Trying fallback client...")
-                return await self.fallback_client.chat(messages, tools, temperature, max_tokens, stream)
-            raise
+            status = e.response.status_code
+            # 认证/参数错误不重试
+            if status in (401, 403, 422):
+                logger.error(f"LLM auth/param error ({status}): {e.response.text[:200]}")
+                if self.fallback_client:
+                    logger.info("Auth error → trying fallback...")
+                    return await self.fallback_client.chat(messages, tools, temperature, max_tokens, stream)
+                raise
+            # 限流/服务端错误 → 重试后 fallback
+            logger.error(f"LLM API error ({status}): {e.response.text[:200]}")
+            return await self._retry_with_backoff(messages, tools, temperature, max_tokens, stream)
 
-        except httpx.TimeoutException as e:
-            logger.error(f"LLM request timeout: {e}")
-            if self.fallback_client:
-                logger.info("Trying fallback client...")
-                return await self.fallback_client.chat(messages, tools, temperature, max_tokens, stream)
-            raise
+        except (httpx.TimeoutException, httpx.ConnectError) as e:
+            logger.error(f"LLM network error: {e}")
+            return await self._retry_with_backoff(messages, tools, temperature, max_tokens, stream)
 
         except Exception as e:
             logger.error(f"LLM request failed: {e}")
@@ -159,6 +164,66 @@ class LLMClient:
                 logger.info("Trying fallback client...")
                 return await self.fallback_client.chat(messages, tools, temperature, max_tokens, stream)
             raise
+
+    async def _retry_with_backoff(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+        stream: bool = False,
+    ) -> dict[str, Any]:
+        """带指数退避的重试，最多 3 次后尝试 fallback。"""
+        last_error: Exception | None = None
+        for attempt in range(1, 4):  # 3 次重试
+            wait = 2 ** attempt + random.uniform(0, 1)  # 2s, 4s, 8s + jitter
+            logger.info(f"LLM retry attempt {attempt}/3 in {wait:.1f}s...")
+            await asyncio.sleep(wait)
+
+            try:
+                client = await self._client()
+                body: dict[str, Any] = {
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": temperature if temperature is not None else self.temperature,
+                }
+                if max_tokens is not None:
+                    body["max_tokens"] = max_tokens
+                elif self.max_tokens:
+                    body["max_tokens"] = self.max_tokens
+                if tools:
+                    body["tools"] = tools
+                    body["tool_choice"] = "auto"
+                if stream:
+                    body["stream"] = True
+
+                resp = await client.post("/chat/completions", json=body)
+                resp.raise_for_status()
+                data = resp.json()
+                logger.info(f"LLM retry {attempt}/3 succeeded")
+                return data
+            except httpx.HTTPStatusError as e:
+                # 限流继续重试，其他错误终止
+                if e.response.status_code == 429:
+                    last_error = e
+                    continue
+                last_error = e
+                break
+            except (httpx.TimeoutException, httpx.ConnectError) as e:
+                last_error = e
+                continue  # 网络错误继续重试
+            except Exception as e:
+                last_error = e
+                break
+
+        # 重试耗尽 → fallback
+        if self.fallback_client:
+            logger.info("Primary retries exhausted → trying fallback...")
+            return await self.fallback_client.chat(messages, tools, temperature, max_tokens, stream)
+        if last_error:
+            raise last_error
+        msg = "LLM request failed after 3 retries with no fallback"
+        raise RuntimeError(msg)
 
     async def chat_stream(
         self,
@@ -220,7 +285,14 @@ class LLMClient:
                             continue
 
         except httpx.HTTPStatusError as e:
-            logger.error(f"LLM stream error: {e.response.status_code} - {e.response.text}")
+            logger.error(f"LLM stream error: {e.response.status_code} - {e.response.text[:200]}")
+            # 短暂重试一次
+            if e.response.status_code not in (401, 403, 422):
+                logger.info("Retrying stream once...")
+                await asyncio.sleep(2)
+                async for chunk in self.chat_stream(messages, tools, temperature, max_tokens):
+                    yield chunk
+                return
             raise
 
         except Exception as e:

@@ -7,6 +7,7 @@ import pandas as pd
 
 from .registry import tool
 from .market_data import _validate_ohlcv, _df_to_records
+from .cache import get_or_fetch
 
 logger = logging.getLogger(__name__)
 
@@ -103,14 +104,19 @@ async def _coingecko_klines(symbol: str, interval: str, period: str) -> list[dic
 
 
 async def _get_crypto_klines_with_fallback(symbol: str, interval: str, period: str, exchange: str = "binance") -> list[dict]:
-    result = await _ccxt_klines(symbol, interval, period, exchange)
-    if result:
-        return result
-    result = await _yfinance_crypto_klines(symbol, interval, period)
-    if result:
-        return result
-    result = await _coingecko_klines(symbol, interval, period)
-    return result if result else []
+    cache_key = f"klines:crypto:{exchange}:{symbol}:{interval}:{period}"
+
+    async def _fetch() -> list[dict]:
+        result = await _ccxt_klines(symbol, interval, period, exchange)
+        if result:
+            return result
+        result = await _yfinance_crypto_klines(symbol, interval, period)
+        if result:
+            return result
+        result = await _coingecko_klines(symbol, interval, period)
+        return result if result else []
+
+    return await get_or_fetch(cache_key, "klines", _fetch)
 
 
 # ──────────────────────────────────────────────
@@ -141,31 +147,36 @@ async def get_crypto_klines(symbol: str, interval: str = "1d", period: str = "1y
     },
 )
 async def get_crypto_realtime(symbol: str, exchange: str = "binance") -> dict:
-    try:
-        import ccxt
+    cache_key = f"crypto:realtime:{exchange}:{symbol}"
 
-        def _fetch():
-            exchange_class = getattr(ccxt, exchange, None)
-            if not exchange_class:
-                return {"error": f"Exchange {exchange} not found"}
-            ex = exchange_class({"enableRateLimit": True})
-            pair = symbol.upper()
-            if "/" not in pair:
-                pair = f"{pair}/USDT"
-            ticker = ex.fetch_ticker(pair)
-            return {
-                "symbol": symbol, "exchange": exchange,
-                "price": ticker.get("last"),
-                "bid": ticker.get("bid"), "ask": ticker.get("ask"),
-                "change_percent": ticker.get("percentage"),
-                "volume_24h": ticker.get("baseVolume"),
-                "high_24h": ticker.get("high"), "low_24h": ticker.get("low"),
-                "vwap_24h": ticker.get("vwap"),
-            }
+    async def _fetch() -> dict:
+        try:
+            import ccxt
 
-        return await asyncio.to_thread(_fetch)
-    except Exception as e:
-        return {"error": str(e)}
+            def _fetch_sync():
+                exchange_class = getattr(ccxt, exchange, None)
+                if not exchange_class:
+                    return {"error": f"Exchange {exchange} not found"}
+                ex = exchange_class({"enableRateLimit": True})
+                pair = symbol.upper()
+                if "/" not in pair:
+                    pair = f"{pair}/USDT"
+                ticker = ex.fetch_ticker(pair)
+                return {
+                    "symbol": symbol, "exchange": exchange,
+                    "price": ticker.get("last"),
+                    "bid": ticker.get("bid"), "ask": ticker.get("ask"),
+                    "change_percent": ticker.get("percentage"),
+                    "volume_24h": ticker.get("baseVolume"),
+                    "high_24h": ticker.get("high"), "low_24h": ticker.get("low"),
+                    "vwap_24h": ticker.get("vwap"),
+                }
+
+            return await asyncio.to_thread(_fetch_sync)
+        except Exception as e:
+            return {"error": str(e)}
+
+    return await get_or_fetch(cache_key, "quote", _fetch)
 
 
 @tool(
@@ -178,28 +189,35 @@ async def get_crypto_realtime(symbol: str, exchange: str = "binance") -> dict:
     },
 )
 async def get_crypto_orderbook(symbol: str, exchange: str = "binance", depth: int = 5) -> dict:
-    try:
-        import ccxt
+    cache_key = f"crypto:orderbook:{exchange}:{symbol}:{depth}"
 
-        def _fetch():
-            exchange_class = getattr(ccxt, exchange, None)
-            if not exchange_class:
-                return {"error": f"Exchange {exchange} not found"}
-            ex = exchange_class({"enableRateLimit": True})
-            pair = symbol.upper()
-            if "/" not in pair:
-                pair = f"{pair}/USDT"
-            ob = ex.fetch_order_book(pair, limit=depth)
-            return {
-                "symbol": symbol, "exchange": exchange,
-                "bids": ob.get("bids", [])[:depth],
-                "asks": ob.get("asks", [])[:depth],
-                "spread": round(ob["asks"][0][0] - ob["bids"][0][0], 2) if ob.get("asks") and ob.get("bids") else None,
-            }
+    async def _fetch() -> dict:
+        try:
+            import ccxt
 
-        return await asyncio.to_thread(_fetch)
-    except Exception as e:
-        return {"error": str(e)}
+            def _fetch_sync():
+                exchange_class = getattr(ccxt, exchange, None)
+                if not exchange_class:
+                    return {"error": f"Exchange {exchange} not found"}
+                ex = exchange_class({"enableRateLimit": True})
+                pair = symbol.upper()
+                if "/" not in pair:
+                    pair = f"{pair}/USDT"
+                ob = ex.fetch_order_book(pair, limit=depth)
+
+                bids = ob.get("bids", [])[:depth]
+                asks = ob.get("asks", [])[:depth]
+                spread = round(asks[0][0] - bids[0][0], 2) if asks and bids else None
+                return {
+                    "symbol": symbol, "exchange": exchange,
+                    "bids": bids, "asks": asks, "spread": spread,
+                }
+
+            return await asyncio.to_thread(_fetch_sync)
+        except Exception as e:
+            return {"error": str(e)}
+
+    return await get_or_fetch(cache_key, "crypto_orderbook", _fetch)
 
 
 @tool(

@@ -13,6 +13,7 @@ from .market_data import (
     _df_to_records,
     _get_symbol_in_market,
 )
+from .cache import get_or_fetch
 
 logger = logging.getLogger(__name__)
 
@@ -65,11 +66,16 @@ async def _akshare_hk_klines(symbol: str, interval: str, period: str) -> list[di
 
 
 async def _get_hk_klines_with_fallback(symbol: str, interval: str, period: str) -> list[dict]:
-    result = await _akshare_hk_klines(symbol, interval, period)
-    if result:
-        return result
-    result = await _yfinance_hk_klines(symbol, interval, period)
-    return result if result else []
+    cache_key = f"klines:hk:{symbol}:{interval}:{period}"
+
+    async def _fetch() -> list[dict]:
+        result = await _akshare_hk_klines(symbol, interval, period)
+        if result:
+            return result
+        result = await _yfinance_hk_klines(symbol, interval, period)
+        return result if result else []
+
+    return await get_or_fetch(cache_key, "klines", _fetch)
 
 
 # ──────────────────────────────────────────────

@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import pandas as pd
 
 from .registry import tool
+from .cache import get_or_fetch
 
 
 def _get_start_date(period: str) -> str:
@@ -185,22 +186,27 @@ async def _akshare_cn_klines(symbol: str, interval: str, period: str) -> list[di
 # ──────────────────────────────────────────────
 
 async def _get_klines_with_fallback(symbol: str, market: str, interval: str, period: str) -> list[dict]:
-    from .hk_stock import _get_hk_klines_with_fallback
-    from .crypto import _get_crypto_klines_with_fallback
+    cache_key = f"klines:fallback:{market}:{symbol}:{interval}:{period}"
 
-    source_chains = {
-        "us_stock": [lambda s, i, p: _yfinance_klines(s, i, p)],
-        "cn_stock": [lambda s, i, p: _akshare_cn_klines(s, i, p),
-                     lambda s, i, p: _yfinance_klines(s, i, p)],
-        "hk_stock": [lambda s, i, p: _get_hk_klines_with_fallback(s, i, p)],
-        "crypto": [lambda s, i, p: _get_crypto_klines_with_fallback(s, i, p)],
-    }
-    sources = source_chains.get(market, source_chains["us_stock"])
-    for source_fn in sources:
-        result = await source_fn(symbol, interval, period)
-        if result:
-            return result
-    return []
+    async def _fetch() -> list[dict]:
+        from .hk_stock import _get_hk_klines_with_fallback
+        from .crypto import _get_crypto_klines_with_fallback
+
+        source_chains = {
+            "us_stock": [lambda s, i, p: _yfinance_klines(s, i, p)],
+            "cn_stock": [lambda s, i, p: _akshare_cn_klines(s, i, p),
+                         lambda s, i, p: _yfinance_klines(s, i, p)],
+            "hk_stock": [lambda s, i, p: _get_hk_klines_with_fallback(s, i, p)],
+            "crypto": [lambda s, i, p: _get_crypto_klines_with_fallback(s, i, p)],
+        }
+        sources = source_chains.get(market, source_chains["us_stock"])
+        for source_fn in sources:
+            result = await source_fn(symbol, interval, period)
+            if result:
+                return result
+        return []
+
+    return await get_or_fetch(cache_key, "klines", _fetch)
 
 
 # ──────────────────────────────────────────────
@@ -216,64 +222,63 @@ async def _get_klines_with_fallback(symbol: str, market: str, interval: str, per
     },
 )
 async def get_stock_quote(symbol: str, market: str = "us_stock") -> dict:
-    if market == "hk_stock":
-        from .hk_stock import get_hk_realtime
-        try:
-            results = await get_hk_realtime([symbol])
-            return results[0] if results else {"error": f"HK stock {symbol} not found"}
-        except Exception as e:
-            logger.error(f"Failed to get HK stock quote for {symbol}: {e}")
-            return _get_mock_quote(symbol, market)
+    cache_key = f"quote:{market}:{symbol}"
 
-    if market == "crypto":
-        from .crypto import get_crypto_realtime
-        try:
-            return await get_crypto_realtime(symbol)
-        except Exception as e:
-            logger.error(f"Failed to get crypto quote for {symbol}: {e}")
-            return _get_mock_quote(symbol, market)
-
-    import yfinance as yf
-
-    def _fetch():
-        sym = _get_symbol_in_market(symbol, market)
-
-        # 尝试获取数据，带重试
-        for attempt in range(2):
+    async def _fetch_quote() -> dict:
+        if market == "hk_stock":
+            from .hk_stock import get_hk_realtime
             try:
-                ticker = yf.Ticker(sym)
-                info = ticker.info
-
-                # 验证数据有效性
-                price = info.get("currentPrice") or info.get("regularMarketPrice")
-                if price:
-                    return {
-                        "symbol": symbol,
-                        "price": price,
-                        "change": info.get("regularMarketChange", 0),
-                        "change_percent": info.get("regularMarketChangePercent", 0),
-                        "volume": info.get("volume") or info.get("regularMarketVolume", 0),
-                        "market_cap": info.get("marketCap"),
-                        "name": info.get("longName") or info.get("shortName", symbol),
-                    }
+                results = await get_hk_realtime([symbol])
+                return results[0] if results else {"error": f"HK stock {symbol} not found"}
             except Exception as e:
-                if attempt == 0:
-                    import time
-                    time.sleep(1)
-                else:
-                    logger.error(f"yfinance failed for {symbol}: {e}")
+                logger.error(f"Failed to get HK stock quote for {symbol}: {e}")
+                return _get_mock_quote(symbol, market)
 
-        return None
+        if market == "crypto":
+            from .crypto import get_crypto_realtime
+            try:
+                return await get_crypto_realtime(symbol)
+            except Exception as e:
+                logger.error(f"Failed to get crypto quote for {symbol}: {e}")
+                return _get_mock_quote(symbol, market)
 
-    try:
-        result = await asyncio.to_thread(_fetch)
-        if result:
-            return result
-    except Exception as e:
-        logger.error(f"Failed to get stock quote for {symbol}: {e}")
+        import yfinance as yf
 
-    # 返回模拟数据
-    return _get_mock_quote(symbol, market)
+        def _fetch_yf():
+            sym = _get_symbol_in_market(symbol, market)
+            for attempt in range(2):
+                try:
+                    ticker = yf.Ticker(sym)
+                    info = ticker.info
+                    price = info.get("currentPrice") or info.get("regularMarketPrice")
+                    if price:
+                        return {
+                            "symbol": symbol,
+                            "price": price,
+                            "change": info.get("regularMarketChange", 0),
+                            "change_percent": info.get("regularMarketChangePercent", 0),
+                            "volume": info.get("volume") or info.get("regularMarketVolume", 0),
+                            "market_cap": info.get("marketCap"),
+                            "name": info.get("longName") or info.get("shortName", symbol),
+                        }
+                except Exception as e:
+                    if attempt == 0:
+                        import time
+                        time.sleep(1)
+                    else:
+                        logger.error(f"yfinance failed for {symbol}: {e}")
+            return None
+
+        try:
+            result = await asyncio.to_thread(_fetch_yf)
+            if result:
+                return result
+        except Exception as e:
+            logger.error(f"Failed to get stock quote for {symbol}: {e}")
+
+        return _get_mock_quote(symbol, market)
+
+    return await get_or_fetch(cache_key, "quote", _fetch_quote)
 
 
 @tool(
@@ -316,52 +321,55 @@ async def get_cn_klines(symbol: str, interval: str = "daily", period: str = "1y"
     },
 )
 async def get_market_overview(market: str = "us_stock") -> list[dict]:
-    if market == "crypto":
-        try:
-            from .crypto import get_crypto_overview
-            overview = await get_crypto_overview()
-            return overview.get("top_10", [])
-        except Exception as e:
-            logger.error(f"Failed to get crypto overview: {e}")
-            return _get_mock_market_overview("crypto")
+    cache_key = f"overview:{market}"
 
-    indices = {
-        "us_stock": ["^GSPC", "^DJI", "^IXIC", "^RUT"],
-        "cn_stock": ["000001.SH", "399001.SZ", "399006.SZ"],
-        "hk_stock": ["^HSI", "^HSTECH"],
-    }
-    syms = indices.get(market, indices["us_stock"])
-
-    import yfinance as yf
-
-    def _fetch():
-        results = []
-        for sym in syms:
+    async def _fetch() -> list[dict]:
+        if market == "crypto":
             try:
-                ticker = yf.Ticker(sym)
-                info = ticker.info
-                price = info.get("regularMarketPrice")
-                if price:  # 只添加有效数据
-                    results.append({
-                        "symbol": sym,
-                        "name": info.get("shortName") or info.get("symbol", sym),
-                        "price": price,
-                        "change_percent": info.get("regularMarketChangePercent", 0),
-                    })
+                from .crypto import get_crypto_overview
+                overview = await get_crypto_overview()
+                return overview.get("top_10", [])
             except Exception as e:
-                logger.debug(f"Failed to get {sym}: {e}")
-                continue
-        return results
+                logger.error(f"Failed to get crypto overview: {e}")
+                return _get_mock_market_overview("crypto")
 
-    try:
-        results = await asyncio.to_thread(_fetch)
-        if results:
+        indices = {
+            "us_stock": ["^GSPC", "^DJI", "^IXIC", "^RUT"],
+            "cn_stock": ["000001.SH", "399001.SZ", "399006.SZ"],
+            "hk_stock": ["^HSI", "^HSTECH"],
+        }
+        syms = indices.get(market, indices["us_stock"])
+
+        import yfinance as yf
+
+        def _fetch_yf():
+            results = []
+            for sym in syms:
+                try:
+                    ticker = yf.Ticker(sym)
+                    info = ticker.info
+                    price = info.get("regularMarketPrice")
+                    if price:
+                        results.append({
+                            "symbol": sym,
+                            "name": info.get("shortName") or info.get("symbol", sym),
+                            "price": price,
+                            "change_percent": info.get("regularMarketChangePercent", 0),
+                        })
+                except Exception as e:
+                    logger.debug(f"Failed to get {sym}: {e}")
+                    continue
             return results
-    except Exception as e:
-        logger.error(f"Failed to get market overview: {e}")
 
-    # 返回模拟数据
-    return _get_mock_market_overview(market)
+        try:
+            results = await asyncio.to_thread(_fetch_yf)
+            if results:
+                return results
+        except Exception as e:
+            logger.error(f"Failed to get market overview: {e}")
+        return _get_mock_market_overview(market)
+
+    return await get_or_fetch(cache_key, "overview", _fetch)
 
 
 def _get_mock_market_overview(market: str) -> list[dict]:

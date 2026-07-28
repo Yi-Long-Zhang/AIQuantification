@@ -228,3 +228,85 @@ class KeltnerChannelStrategy(Strategy):
         signals[(df["Close"] > upper) & (ema_slope > 0)] = 1
         signals[(df["Close"] < lower) & (ema_slope < 0)] = -1
         return signals
+
+
+class VWAPBreakoutStrategy(Strategy):
+    name = "vwap_breakout"
+    description = "VWAP 上下突破（日内均价基准，机构最常用）"
+    type = "趋势"
+    tags = ["trend", "vwap", "breakout", "institutional"]
+    markets = ["us_stock", "crypto"]
+    params = {"vwap_period": "20", "breakout_pct": "1.5"}
+    risk_level = "低"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        typical = (df["High"] + df["Low"] + df["Close"]) / 3
+        vwap_raw = (typical * df["Volume"]).rolling(20).sum() / df["Volume"].rolling(20).sum()
+        breakout_pct = 0.015
+        signals = pd.Series(0, index=df.index)
+        signals[df["Close"] > vwap_raw * (1 + breakout_pct)] = 1
+        signals[df["Close"] < vwap_raw * (1 - breakout_pct)] = -1
+        return signals
+
+
+class SuperTrendStrategy(Strategy):
+    name = "super_trend"
+    description = "SuperTrend 超级趋势（ATR 动态止损，加密货币热用）"
+    type = "趋势"
+    tags = ["trend", "supertrend", "volatility", "crypto"]
+    markets = ["us_stock", "crypto"]
+    params = {"atr_period": "10", "multiplier": "3.0"}
+    risk_level = "中"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        high = df["High"]
+        low = df["Low"]
+        close = df["Close"]
+        atr_period = 10
+        multiplier = 3.0
+        tr = pd.concat([
+            high - low,
+            (high - close.shift()).abs(),
+            (low - close.shift()).abs(),
+        ], axis=1).max(axis=1)
+        atr = tr.rolling(atr_period).mean()
+        hl2 = (high + low) / 2
+        upper = hl2 + multiplier * atr
+        lower = hl2 - multiplier * atr
+        signals = pd.Series(0, index=df.index)
+        in_uptrend = True
+        for i in range(1, len(df)):
+            if close.iloc[i] > upper.iloc[i - 1]:
+                in_uptrend = True
+            elif close.iloc[i] < lower.iloc[i - 1]:
+                in_uptrend = False
+            signals.iloc[i] = 1 if in_uptrend else -1
+        return signals
+
+
+class MarketRegimeStrategy(Strategy):
+    name = "market_regime"
+    description = "市场状态识别（牛/熊/震荡，动态切换子策略）"
+    type = "趋势"
+    tags = ["regime", "adaptive", "volatility", "trend-filter"]
+    markets = ["us_stock", "cn_stock", "hk_stock"]
+    params = {"ma_short": "50", "ma_long": "200", "vol_period": "20"}
+    risk_level = "中"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        close = df["Close"]
+        sma50 = close.rolling(50).mean()
+        sma200 = close.rolling(200).mean()
+        vol = close.pct_change().rolling(20).std()
+        vol_ma = vol.rolling(100).mean()
+        trend_strength = (sma50 - sma200).abs() / sma200.replace(0, np.nan)
+        is_bull = sma50 > sma200
+        is_high_vol = vol > vol_ma * 1.5
+        signals = pd.Series(0, index=df.index)
+        # 低波动牛市：做多动量
+        signals[(is_bull) & (~is_high_vol) & (close > sma50)] = 1
+        # 高波动市场：观望
+        signals[is_high_vol] = 0
+        # 低波动熊市：做空
+        signals[(~is_bull) & (~is_high_vol) & (close < sma50)] = -1
+        return signals

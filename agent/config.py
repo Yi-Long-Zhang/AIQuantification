@@ -115,6 +115,11 @@ class Settings:
     # ── Broker config ─────────────────────────────────────────────────────
 
     @property
+    def constitution_path(self) -> str | None:
+        """Path to the agent constitution markdown file."""
+        return self._raw.get("constitution", {}).get("path")
+
+    @property
     def broker_configs(self) -> dict[str, dict[str, Any]]:
         """Return broker configurations keyed by name."""
         return self._raw.get("brokers", {})

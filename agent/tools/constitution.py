@@ -13,7 +13,14 @@ from .registry import tool
     },
 )
 async def check_constitution(article: str = "") -> dict:
-    path = Path(__file__).parent.parent.parent / "docs" / "agent-constitution.md"
+    # Try settings first, fall back to default path
+    try:
+        from agent.config import settings
+        constitution_path = Path(settings.constitution_path) if settings.constitution_path else None
+    except Exception:
+        constitution_path = None
+
+    path = constitution_path or (Path(__file__).parent.parent.parent / "docs" / "agent-constitution.md")
     if not path.exists():
         return {"error": "Constitution not found"}
 

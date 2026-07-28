@@ -42,6 +42,12 @@ const router = createRouter({
       name: 'Broker',
       component: () => import('@/views/BrokerView.vue'),
       meta: { title: '券商连接' }
+    },
+    {
+      path: '/paper',
+      name: 'PaperTrading',
+      component: () => import('@/views/PaperTradingView.vue'),
+      meta: { title: '模拟交易' }
     }
   ]
 })

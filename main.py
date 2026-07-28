@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from fastapi import FastAPI, Request, WebSocket
@@ -10,6 +11,7 @@ from slowapi.errors import RateLimitExceeded
 from agent.config import settings
 from api.routes import router as api_router
 from api.multi_agent_routes import router as multi_agent_router
+from agent.scheduler import start_scheduler
 
 limiter = Limiter(key_func=get_remote_address)
 
@@ -27,6 +29,13 @@ app.add_middleware(
 
 app.include_router(api_router)
 app.include_router(multi_agent_router)
+
+
+@app.on_event("startup")
+async def startup():
+    """Start background services on app launch."""
+    start_scheduler()
+    logger.info("Startup complete: scheduler running")
 
 
 @app.websocket("/ws/market/{market}")

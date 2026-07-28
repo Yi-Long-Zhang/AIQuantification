@@ -6,13 +6,14 @@
 ┌─────────────────────────────────────────────────────────┐
 │               API 层 (FastAPI)                           │
 │  api/routes.py + api/multi_agent_routes.py               │
-│  (40+ HTTP 端点)                                         │
+│  (50+ HTTP 端点)                                         │
 ├─────────────────────────────────────────────────────────┤
 │              Agent 层                                    │
 │  agent/core.py (QuantAgent ReAct)                        │
+│  agent/scheduler.py (交易周期自动调度)                     │
 │  agent/multi_agent/coordinator.py (8 Agent 调度)          │
-│  agent/llm_client.py (4 LLM 提供商)                       │
-│  agent/memory.py (SQLite + FTS5)                         │
+│  agent/llm_client.py (4 LLM 提供商 + 退避重试)            │
+│  agent/memory.py (SQLite + FTS5, WAL)                    │
 │  agent/skills/ (13 个技能)                                │
 ├─────────────────────────────────────────────────────────┤
 │            工具层 (agent/tools/ — 40+ 工具)                │
@@ -22,11 +23,14 @@
 │          缓存层 (agent/tools/cache.py)                    │
 │  TTL 内存缓存：K线5m / 报价30s / 概览1m / 盘口10s       │
 ├─────────────────────────────────────────────────────────┤
-│          策略层 (agent/strategies/ — 18 策略)             │
-│  趋势/反转/均值回归/事件驱动/组合                          │
+│          策略层 (agent/strategies/ — 28 策略)             │
+│  趋势12 · 均值回归6 · 反转2 · 事件4 · 组合2 · ML2        │
 ├─────────────────────────────────────────────────────────┤
 │          券商层 (agent/broker/)                           │
-│  Alpaca (REST) · IBKR (ib_insync) · Shadow Account       │
+│  Alpaca · IBKR · PaperBroker (模拟交易+风控)             │
+├─────────────────────────────────────────────────────────┤
+│          实时行情层 (agent/ws/)                           │
+│  yfinance(美股) · ccxt(加密) · akshare(A股/港股)        │
 ├─────────────────────────────────────────────────────────┤
 │        基础设施 (agent/data/ + agent/notify/)              │
 │  数据源框架 · Telegram · Webhook                          │

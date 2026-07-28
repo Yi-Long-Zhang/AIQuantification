@@ -53,6 +53,7 @@ NewsAnalyst                                          Final Decision
 | gemini | gemini-2.0-flash |
 
 自动 fallback：按 provider_info 列表逐一尝试，失败后切换。
+指数退避重试：本地重试 3 次（2s/4s/8s + jitter），耗尽后切换 fallback。
 
 ## 工具系统
 

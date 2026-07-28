@@ -324,7 +324,7 @@ conftest.py                  # pytest 全局 fixtures
 config.yaml                  # 配置（git ignored）
 config.yaml.example          # 配置模板
 AGENTS.md                    # 精要版宪法（opencode 自动加载）
-AGENT_CONSTITUTION.md        # 智能体宪法（交易行为准则）
+AGENT_CONSTITUTION.md        # 智能体宪法 → docs/agent-constitution.md
 ITERATION_PLAN.md            # 迭代计划和进度追踪
 agent/
   config.py                  # 配置加载

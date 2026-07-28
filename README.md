@@ -93,7 +93,7 @@ npm run dev
 ### 其他文档
 
 - [迭代计划](ITERATION_PLAN.md) - 项目路线图
-- [Agent准则](AGENT_CONSTITUTION.md) - Agent行为规范
+- [Agent准则](docs/agent-constitution.md) - Agent行为规范
 - [服务管理](README_SERVICES.md) - 服务启动和管理
 
 ---

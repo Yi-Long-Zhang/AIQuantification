@@ -149,6 +149,41 @@ async def import_trades(request: Request, csv_content: str = ""):
     return result
 
 
+@router.get("/broker/paper/summary")
+@limiter.limit("20/minute")
+async def paper_summary(request: Request):
+    """Get PaperBroker portfolio summary."""
+    registry = get_broker_registry()
+    paper = registry.get("paper")
+    if not paper or not hasattr(paper, "get_portfolio_summary"):
+        return {"error": "PaperBroker not available"}
+    return paper.get_portfolio_summary()
+
+
+@router.get("/broker/paper/trades")
+@limiter.limit("20/minute")
+async def paper_trades(request: Request, limit: int = 50):
+    """Get PaperBroker trade history."""
+    registry = get_broker_registry()
+    paper = registry.get("paper")
+    if not paper or not hasattr(paper, "get_trades"):
+        return {"error": "PaperBroker not available", "trades": []}
+    trades = await paper.get_trades(limit=limit)
+    return {"trades": [t.to_dict() for t in trades], "count": len(trades)}
+
+
+@router.get("/broker/paper/equity")
+@limiter.limit("20/minute")
+async def paper_equity(request: Request, limit: int = 500):
+    """Get PaperBroker equity history."""
+    registry = get_broker_registry()
+    paper = registry.get("paper")
+    if not paper or not hasattr(paper, "get_equity_history"):
+        return {"error": "PaperBroker not available", "history": []}
+    history = paper.get_equity_history(limit=limit)
+    return {"history": history, "count": len(history)}
+
+
 @router.post("/backtest", response_model=list[BacktestResult])
 @limiter.limit("5/minute")
 async def run_backtest(request: Request, req: BacktestRequest):

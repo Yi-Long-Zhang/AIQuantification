@@ -101,6 +101,10 @@ class PaperBroker(BrokerBase):
         # Current market prices (set externally via update_price())
         self._prices: dict[str, float] = {}
 
+        # Equity history for performance chart
+        self._equity_history: list[dict[str, float]] = []
+        self._last_equity_record: float = 0.0
+
         # For limit order book simulation
         self._open_orders: list[Order] = []
         self._connected = True  # Always connected
@@ -121,25 +125,43 @@ class PaperBroker(BrokerBase):
 
     def update_price(self, symbol: str, price: float) -> None:
         """Update current market price for a symbol.
-
         This should be called by the data pipeline whenever new prices arrive.
-        Triggers limit order checks automatically.
+        Triggers limit order checks and records equity snapshot.
         """
         old_price = self._prices.get(symbol)
         self._prices[symbol] = price
         if old_price is not None and old_price != price:
             self._check_limit_orders(symbol)
+        self.record_equity_snapshot()
 
     def update_prices(self, prices: dict[str, float]) -> None:
-        """Batch update multiple prices. More efficient for bulk updates."""
+        """Batch update multiple prices and record equity snapshot."""
         for symbol, price in prices.items():
             self._prices[symbol] = price
         for symbol in prices:
             self._check_limit_orders(symbol)
+        self.record_equity_snapshot()
 
     def get_price(self, symbol: str) -> float | None:
         """Get current price for a symbol."""
         return self._prices.get(symbol)
+
+    # ── Equity history ───────────────────────────────────────────────────
+
+    def record_equity_snapshot(self) -> None:
+        """Record current equity value for history tracking."""
+        equity = self._cash + self._unrealized_pnl()
+        # Only record if equity changed significantly (>0.1%)
+        if abs(equity - self._last_equity_record) / max(self._last_equity_record, 1) > 0.001:
+            self._equity_history.append({
+                "time": datetime.now().isoformat(),
+                "equity": round(equity, 2),
+            })
+            self._last_equity_record = equity
+
+    def get_equity_history(self, limit: int = 500) -> list[dict[str, float]]:
+        """Return equity history, most recent first."""
+        return self._equity_history[-limit:]
 
     # ── Account ──────────────────────────────────────────────────────────
 

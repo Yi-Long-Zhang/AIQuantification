@@ -134,7 +134,8 @@ def factor_attribution(
             factor_series = compute_factor(fname, df)
             if factor_series is not None:
                 factors[fname] = factor_series
-        except Exception:
+        except Exception as e:
+            logger.debug("Factor %s attribution skipped: %s", fname, e)
             continue
 
     if not factors:

@@ -7,10 +7,14 @@ meta-strategy that combines multiple sub-strategies via weighted voting.
 
 from __future__ import annotations
 
+import logging
+
 import numpy as np
 import pandas as pd
 
 from .base import Strategy
+
+logger = logging.getLogger(__name__)
 
 
 class LightGBMStrategy(Strategy):
@@ -63,7 +67,8 @@ class LightGBMStrategy(Strategy):
             model.fit(X_train, y_train)
             proba = model.predict_proba(X_test)
             pred = np.argmax(proba, axis=1) - 1  # -1, 0, +1
-        except Exception:
+        except Exception as e:
+            logger.warning("LightGBM prediction failed: %s", e)
             return pd.Series(0, index=df.index)
 
         signals = pd.Series(0, index=df.index)
@@ -98,14 +103,16 @@ class EnsembleStrategy(Strategy):
 
         # Compute each sub-strategy's signals
         sub_signals = {}
-        try:
-            sub_signals["sma"] = SMACrossStrategy().generate_signals(df)
-            sub_signals["macd"] = MACDStrategy().generate_signals(df)
-            sub_signals["rsi"] = RSIStrategy().generate_signals(df)
-            sub_signals["bollinger"] = BollingerStrategy().generate_signals(df)
-            sub_signals["ichimoku"] = IchimokuStrategy().generate_signals(df)
-        except Exception:
-            return pd.Series(0, index=df.index)
+        strategies = {
+            "sma": SMACrossStrategy, "macd": MACDStrategy,
+            "rsi": RSIStrategy, "bollinger": BollingerStrategy,
+            "ichimoku": IchimokuStrategy,
+        }
+        for name, StratClass in strategies.items():
+            try:
+                sub_signals[name] = StratClass().generate_signals(df)
+            except Exception as e:
+                logger.warning("Ensemble sub-strategy %s failed: %s", name, e)
 
         # Dynamic weights: more weight to strategies with recent success
         weights = {}

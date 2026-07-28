@@ -152,7 +152,8 @@ async def get_hk_index() -> list[dict]:
                     "price": info.get("regularMarketPrice"),
                     "change_percent": info.get("regularMarketChangePercent"),
                 })
-            except Exception:
+            except Exception as e:
+                logger.debug("HK stock skipped %s: %s", sym, e)
                 continue
         return results
 

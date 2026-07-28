@@ -31,7 +31,7 @@ class Settings:
         self._loaded_path: str | None = None
         self._load(config_path)
 
-    def _load(self, config_path: str | None = None):
+    def _load(self, config_path: str | None = None) -> None:
         paths = [config_path] if config_path else DEFAULT_PATHS
         for p in paths:
             expanded = os.path.expanduser(p)
@@ -41,7 +41,7 @@ class Settings:
                 return
         self._raw = {}
 
-    def _load_file(self, path: str):
+    def _load_file(self, path: str) -> None:
         if yaml is None:
             raise ImportError("PyYAML is required. Install with: uv pip install pyyaml")
         with open(path, encoding="utf-8") as f:

@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 
 import numpy as np
 import pandas as pd
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -257,7 +260,8 @@ class Alpha158:
         for f in all_factors:
             try:
                 result[f.name] = f.func(df)
-            except Exception:
+            except Exception as e:
+                logger.debug("Alpha158 factor %s failed: %s", f.name, e)
                 result[f.name] = np.nan
         return pd.DataFrame(result, index=df.index)
 

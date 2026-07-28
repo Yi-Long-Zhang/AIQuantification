@@ -65,6 +65,13 @@ GET  /broker/{name}/status       → 账户 + 持仓
 POST /broker/{name}/connect      → 连接券商
 GET  /broker/{name}/orders       → 订单列表
 POST /broker/import-trades       → CSV 交易导入
+
+## Paper Broker
+
+```
+GET  /broker/paper/summary  → 组合摘要（权益/收益率/仓位）
+GET  /broker/paper/trades   → 交易历史
+GET  /broker/paper/equity   → 权益曲线历史
 ```
 
 ## 基础

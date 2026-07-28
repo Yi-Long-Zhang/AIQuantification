@@ -159,6 +159,23 @@ class BrokerBase(ABC):
         """Get recent orders, optionally filtered by status."""
         ...
 
+    @abstractmethod
+    async def submit_order(
+        self,
+        symbol: str,
+        side: str,
+        qty: float,
+        order_type: str = "market",
+        price: float | None = None,
+    ) -> Order:
+        """Submit a new order. Returns the created Order."""
+        ...
+
+    @abstractmethod
+    async def cancel_order(self, order_id: str) -> bool:
+        """Cancel an open order. Returns True if successful."""
+        ...
+
     async def get_trades(self, limit: int = 100) -> list[Trade]:
         """Get recent completed trades (fills)."""
         return []

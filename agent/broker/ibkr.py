@@ -180,3 +180,16 @@ class IBRKBroker(BrokerBase):
             )
             trades.append(trade)
         return trades
+
+    async def submit_order(
+        self,
+        symbol: str,
+        side: str,
+        qty: float,
+        order_type: str = "market",
+        price: float | None = None,
+    ) -> Order:
+        raise NotImplementedError("IBKR submit_order: use PaperBroker for simulation")
+
+    async def cancel_order(self, order_id: str) -> bool:
+        raise NotImplementedError("IBKR cancel_order: use PaperBroker for simulation")

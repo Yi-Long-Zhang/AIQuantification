@@ -31,7 +31,7 @@ memory:
 
 constitution:
   # 智能体宪法文件路径
-  path: "AGENT_CONSTITUTION.md"
+  path: "docs/agent-constitution.md"
 
 server:
   host: "0.0.0.0"

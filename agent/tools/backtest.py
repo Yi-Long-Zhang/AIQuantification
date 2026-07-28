@@ -394,8 +394,8 @@ async def trade_attribution(
             d1 = pd.Timestamp(dates[i - 1])
             d2 = pd.Timestamp(dates[i])
             holding_days.append((d2 - d1).days)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Date parse skipped for holding calc: %s", e)
 
     # 盈亏分位数
     pnl_series = pd.Series(pnls)

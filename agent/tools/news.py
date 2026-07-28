@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 
 from .registry import tool
+
+logger = logging.getLogger(__name__)
 
 
 @tool(
@@ -58,7 +61,8 @@ async def analyze_sentiment(market: str = "crypto") -> dict:
                     item = data["data"][0]
                     result["fear_greed_index"] = int(item.get("value", 50))
                     result["classification"] = item.get("value_classification", "Neutral")
-        except Exception:
+        except Exception as e:
+            logger.debug("Fear & Greed API failed: %s", e)
             result["fear_greed_index"] = None
             result["classification"] = "Unknown"
 
@@ -80,7 +84,8 @@ async def analyze_sentiment(market: str = "crypto") -> dict:
                         result["classification"] = "High Fear"
                     else:
                         result["classification"] = "Extreme Fear"
-            except Exception:
+            except Exception as e:
+                logger.debug("VIX fetch failed: %s", e)
                 result["vix"] = None
                 result["classification"] = "Unknown"
 

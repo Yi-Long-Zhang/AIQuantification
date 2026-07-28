@@ -30,7 +30,7 @@ DEFAULT_SYMBOLS: dict[str, list[str]] = {
 }
 
 
-def register_client(market: str, ws_id: str, ws):
+def register_client(market: str, ws_id: str, ws: "Any") -> None:
     if market not in _clients:
         _clients[market] = {}
     _clients[market][ws_id] = ws
@@ -38,7 +38,7 @@ def register_client(market: str, ws_id: str, ws):
     _ensure_poll(market)
 
 
-def unregister_client(market: str, ws_id: str):
+def unregister_client(market: str, ws_id: str) -> None:
     if market in _clients:
         _clients[market].pop(ws_id, None)
         if not _clients[market]:
@@ -55,7 +55,8 @@ async def broadcast(market: str, data: dict):
     for ws_id, ws in _clients[market].items():
         try:
             await ws.send_text(text)
-        except Exception:
+        except Exception as e:
+            logger.debug("WS send to %s failed: %s", ws_id, e)
             dead.append(ws_id)
     for ws_id in dead:
         unregister_client(market, ws_id)
@@ -74,13 +75,13 @@ def _feed_paper_broker(items: list[dict]) -> None:
         logger.debug(f"Failed to feed PaperBroker: {e}")
 
 
-def _ensure_poll(market: str):
+def _ensure_poll(market: str) -> None:
     if market in _poll_tasks and not _poll_tasks[market].done():
         return
     _poll_tasks[market] = asyncio.create_task(_poll_market(market))
 
 
-def _stop_poll(market: str):
+def _stop_poll(market: str) -> None:
     if market in _poll_tasks:
         _poll_tasks[market].cancel()
         _poll_tasks.pop(market, None)

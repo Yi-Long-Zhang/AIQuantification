@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from .registry import tool
+
+logger = logging.getLogger(__name__)
 
 
 @tool(
@@ -17,7 +20,8 @@ async def check_constitution(article: str = "") -> dict:
     try:
         from agent.config import settings
         constitution_path = Path(settings.constitution_path) if settings.constitution_path else None
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed to read constitution_path from settings: %s", e)
         constitution_path = None
 
     path = constitution_path or (Path(__file__).parent.parent.parent / "docs" / "agent-constitution.md")

@@ -181,7 +181,8 @@ async def calculate_indicators(symbol: str, market: str = "us_stock", indicators
                     result["latest"]["dmp"] = round(adx.iloc[-1, 1], 2) if adx.shape[1] > 1 else None
                     result["latest"]["dmn"] = round(adx.iloc[-1, 2], 2) if adx.shape[1] > 2 else None
 
-        except Exception:
+        except Exception as e:
+            logger.debug("Indicator %s calculation skipped: %s", ind, e)
             continue
 
     close = pd.to_numeric(df["Close"], errors="coerce")

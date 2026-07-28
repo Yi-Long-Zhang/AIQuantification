@@ -70,11 +70,26 @@ class PaperBroker(BrokerBase):
         initial_capital: float = 100_000.0,
         commission_pct: float = 0.001,  # 0.1% per trade
         slippage_pct: float = 0.001,   # 0.1% slippage on market orders
+        # ── Risk limits ──
+        max_position_pct: float = 0.20,       # Max 20% of equity per symbol
+        max_daily_loss_pct: float = 0.05,     # Stop trading if daily loss > 5%
+        max_daily_trades: int = 20,           # Max 20 trades per day
+        max_leverage: float = 2.0,            # Max 2x leverage
     ):
         super().__init__(name)
         self._initial_capital = initial_capital
         self._commission_pct = commission_pct
         self._slippage_pct = slippage_pct
+        # Risk limits
+        self._max_position_pct = max_position_pct
+        self._max_daily_loss_pct = max_daily_loss_pct
+        self._max_daily_trades = max_daily_trades
+        self._max_leverage = max_leverage
+
+        # Tracking for daily risk limits
+        self._daily_start_equity = initial_capital
+        self._daily_trade_count = 0
+        self._current_day = datetime.now().strftime("%Y-%m-%d")
 
         # Virtual portfolio state
         self._cash = initial_capital
@@ -191,6 +206,14 @@ class PaperBroker(BrokerBase):
             type=order_type,
             created_at=now,
         )
+
+        # ── Risk check before execution ──
+        risk_result = self._check_risk(symbol, side, qty, order_type)
+        if risk_result is not None:
+            order.status = "cancelled"
+            logger.warning(f"Order {order_id} rejected by risk: {risk_result}")
+            self._orders.append(order)
+            return order
 
         if order_type == "market":
             await self._execute_market_order(order)
@@ -326,6 +349,10 @@ class PaperBroker(BrokerBase):
         commission: float,
     ) -> None:
         """Apply a fill to the virtual portfolio."""
+        # Reset daily tracking at day boundary
+        self._check_daily_reset()
+        self._daily_trade_count += 1
+
         pos = self._positions.setdefault(symbol, _PositionState(symbol=symbol))
 
         if side == "buy":
@@ -401,6 +428,67 @@ class PaperBroker(BrokerBase):
             "open_orders": len(self._open_orders),
             "total_trades": len(self._trades),
         }
+
+    # ── Risk management ──────────────────────────────────────────────────
+
+    def _check_risk(self, symbol: str, side: str, qty: float, order_type: str) -> str | None:
+        """Check all risk limits before order execution.
+        Returns error string if rejected, None if approved.
+        """
+        total_equity = self._cash + self._unrealized_pnl()
+        current_price = self._prices.get(symbol, 0)
+
+        # 1. Max daily loss circuit breaker
+        daily_pnl = self._daily_pnl()
+        if daily_pnl < -self._max_daily_loss_pct * self._initial_capital:
+            return f"Daily loss limit reached ({daily_pnl:+.0f} < -{self._max_daily_loss_pct:.0%})"
+
+        # 2. Max daily trade count
+        today_trades = sum(1 for t in self._trades if t.timestamp.startswith(datetime.now().strftime("%Y-%m-%d")))
+        if today_trades >= self._max_daily_trades:
+            return f"Daily trade limit reached ({today_trades}/{self._max_daily_trades})"
+
+        # 3. Max position size per symbol
+        if side == "buy" and current_price > 0:
+            position_value = qty * current_price
+            max_position_value = total_equity * self._max_position_pct
+            if position_value > max_position_value:
+                return (
+                    f"Position size {position_value:+.0f} exceeds {self._max_position_pct:.0%} "
+                    f"limit ({max_position_value:+.0f})"
+                )
+
+        # 4. Max leverage check
+        total_position_value = sum(
+            pos.qty * self._prices.get(pos.symbol, pos.avg_entry_price)
+            for pos in self._positions.values()
+        )
+        if side == "buy" and current_price > 0:
+            new_total = total_position_value + qty * current_price
+        else:
+            new_total = total_position_value
+        if new_total > total_equity * self._max_leverage:
+            return f"Leverage limit exceeded ({new_total / total_equity:.1f}x > {self._max_leverage}x)"
+
+        return None  # Approved
+
+    def _check_daily_reset(self) -> None:
+        """Reset daily counters at day boundary."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        if today != self._current_day:
+            total_equity = self._cash + self._unrealized_pnl()
+            self._daily_start_equity = total_equity
+            self._daily_trade_count = 0
+            self._current_day = today
+            logger.info(f"Daily risk counters reset (new day: {today}, equity: {total_equity:,.0f})")
+
+    def _daily_pnl(self) -> float:
+        """Calculate today's realized P&L."""
+        today = datetime.now().strftime("%Y-%m-%d")
+        return sum(
+            t.realized_pl or 0 for t in self._trades
+            if t.timestamp.startswith(today)
+        )
 
     def to_dict(self) -> dict[str, Any]:
         return {

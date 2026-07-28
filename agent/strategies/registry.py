@@ -1,8 +1,7 @@
 """
 Strategy Registry — central lookup for all strategies.
 
-Strategy classes are defined in category files (trend_strategies.py,
-mean_reversion_strategies.py, specialized_strategies.py) and imported here
+Strategy classes are defined in category files and imported here
 into a single _STRATEGIES dictionary.
 """
 
@@ -16,14 +15,17 @@ from .trend_strategies import (
     SMACrossStrategy, MACDStrategy, IchimokuStrategy, SMCStrategy,
     ATRChannelStrategy, ParabolicSARStrategy, VolumeWeightedMomentumStrategy,
     DonchianChannelStrategy, KeltnerChannelStrategy,
+    VWAPBreakoutStrategy, SuperTrendStrategy, MarketRegimeStrategy,
 )
 from .mean_reversion_strategies import (
     BollingerStrategy, ZScoreMeanReversionStrategy,
     PairTradingStrategy, GapFillStrategy,
+    RSIMeanReversionStrategy, VolatilityMeanReversionStrategy,
 )
 from .specialized_strategies import (
     RSIStrategy, RSIDivergenceStrategy, MultiFactorStrategy,
     CryptoFundingStrategy, EarningsMomentumStrategy,
+    CarryTradeStrategy, SectorRotationStrategy, CalendarEffectStrategy,
 )
 
 
@@ -40,6 +42,12 @@ _STRATEGIES: dict[str, type[Strategy]] = {
     "earnings_momentum": EarningsMomentumStrategy,
     "donchian_channel": DonchianChannelStrategy,
     "keltner_channel": KeltnerChannelStrategy,
+    "vwap_breakout": VWAPBreakoutStrategy, "super_trend": SuperTrendStrategy,
+    "market_regime": MarketRegimeStrategy,
+    "rsi_mean_reversion": RSIMeanReversionStrategy,
+    "volatility_mean_reversion": VolatilityMeanReversionStrategy,
+    "carry_trade": CarryTradeStrategy, "sector_rotation": SectorRotationStrategy,
+    "calendar_effect": CalendarEffectStrategy,
 }
 
 

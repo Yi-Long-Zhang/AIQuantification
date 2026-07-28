@@ -126,3 +126,64 @@ class EarningsMomentumStrategy(Strategy):
                 if gap.iloc[i] > 0.03 and post_gap_ret > 0: signals.iloc[i] = 1
                 elif gap.iloc[i] < -0.03 and post_gap_ret < 0: signals.iloc[i] = -1
         return signals
+
+
+class CarryTradeStrategy(Strategy):
+    name = "carry_trade"
+    description = "加密货币跨期套利（现货/永续基差，资金费率方向）"
+    type = "事件驱动"
+    tags = ["crypto", "carry", "funding-rate", "arbitrage"]
+    markets = ["crypto"]
+    params = {"funding_threshold": "0.03", "momentum_period": "5"}
+    risk_level = "高"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        ret_5d = df["Close"].pct_change(5)
+        signals = pd.Series(0, index=df.index)
+        signals[ret_5d > 0.03] = -1
+        signals[ret_5d < -0.03] = 1
+        return signals
+
+
+class SectorRotationStrategy(Strategy):
+    name = "sector_rotation"
+    description = "板块轮动（相对强弱排名，买入强势板块）"
+    type = "组合"
+    tags = ["sector", "rotation", "relative-strength", "macro"]
+    markets = ["us_stock", "cn_stock"]
+    params = {"momentum_period": "20", "lookback": "60"}
+    risk_level = "中"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        close = df["Close"]
+        mom_20 = close.pct_change(20)
+        mom_ma = mom_20.rolling(60).mean()
+        mom_rank = mom_20.rank(pct=True)
+        signals = pd.Series(0, index=df.index)
+        signals[(mom_20 > mom_ma) & (mom_rank > 0.7)] = 1
+        signals[(mom_20 < mom_ma) & (mom_rank < 0.3)] = -1
+        return signals
+
+
+class CalendarEffectStrategy(Strategy):
+    name = "calendar_effect"
+    description = "日历效应（月末/季末/期权到期，月底做多月初做空）"
+    type = "事件驱动"
+    tags = ["calendar", "seasonal", "month-end", "expiry"]
+    markets = ["us_stock", "hk_stock"]
+    params = {"window_days": "3", "bias": "long"}
+    risk_level = "中"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        if not isinstance(df.index, pd.DatetimeIndex):
+            df.index = pd.to_datetime(df.index)
+        signals = pd.Series(0, index=df.index)
+        for i in range(len(df)):
+            dt = df.index[i]
+            ds = dt.day
+            dm = dt.days_in_month
+            if ds >= dm - 2:
+                signals.iloc[i] = 1
+            elif ds <= 2:
+                signals.iloc[i] = -1
+        return signals

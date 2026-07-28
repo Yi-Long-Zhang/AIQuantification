@@ -87,3 +87,48 @@ class GapFillStrategy(Strategy):
         signals[gap > 1] = -1
         signals[gap < -1] = 1
         return signals
+
+
+class RSIMeanReversionStrategy(Strategy):
+    name = "rsi_mean_reversion"
+    description = "RSI 均值回归短线增强（双重确认+趋势过滤）"
+    type = "均值回归"
+    tags = ["mean-reversion", "rsi", "short-term", "enhanced"]
+    markets = ["us_stock", "crypto"]
+    params = {"rsi_period": "5", "oversold": "25", "overbought": "75", "ma_period": "20"}
+    risk_level = "中"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        delta = df["Close"].diff()
+        gain = delta.where(delta > 0, 0).rolling(5).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(5).mean()
+        rs = gain / loss.replace(0, np.nan)
+        rsi = 100 - (100 / (1 + rs))
+        ma20 = df["Close"].rolling(20).mean()
+        signals = pd.Series(0, index=df.index)
+        # 短线超卖 + 价格在均线下方（超卖确认）
+        signals[(rsi < 25) & (df["Close"] < ma20)] = 1
+        signals[(rsi > 75) & (df["Close"] > ma20)] = -1
+        return signals
+
+
+class VolatilityMeanReversionStrategy(Strategy):
+    name = "volatility_mean_reversion"
+    description = "波动率均值回归（高波动 → 回归正常水平时反向入场）"
+    type = "均值回归"
+    tags = ["mean-reversion", "volatility", "vix", "statistical"]
+    markets = ["us_stock", "crypto"]
+    params = {"vol_period": "20", "lookback": "100", "threshold": "2.0"}
+    risk_level = "高"
+
+    def generate_signals(self, df: pd.DataFrame) -> pd.Series:
+        volatility = df["Close"].pct_change().rolling(20).std()
+        vol_ma = volatility.rolling(100).mean()
+        vol_std = volatility.rolling(100).std()
+        vol_zscore = (volatility - vol_ma) / vol_std.replace(0, np.nan)
+        ret_1d = df["Close"].pct_change(1)
+        signals = pd.Series(0, index=df.index)
+        # 波动率飙升后回调 → 反向入场
+        signals[(vol_zscore.shift(1) > 2) & (vol_zscore < 0.5) & (ret_1d > 0)] = -1
+        signals[(vol_zscore.shift(1) > 2) & (vol_zscore < 0.5) & (ret_1d < 0)] = 1
+        return signals

@@ -10,6 +10,7 @@ import logging
 from typing import Any
 
 from .base import BrokerBase
+from .paper import PaperBroker
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,7 @@ class BrokerRegistry:
 
 
 _registry = BrokerRegistry()
+_registry.register(PaperBroker())
 
 
 def get_broker_registry() -> BrokerRegistry:

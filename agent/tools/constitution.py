@@ -13,7 +13,7 @@ from .registry import tool
     },
 )
 async def check_constitution(article: str = "") -> dict:
-    path = Path(__file__).parent.parent.parent / "AGENT_CONSTITUTION.md"
+    path = Path(__file__).parent.parent.parent / "docs" / "agent-constitution.md"
     if not path.exists():
         return {"error": "Constitution not found"}
 

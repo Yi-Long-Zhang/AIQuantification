@@ -12,7 +12,7 @@ from agent.skills import get_skill_registry
 from agent.strategies.registry import list_strategies
 from agent.tools.registry import get_tool_names
 from agent.broker.registry import get_broker_registry
-from models.schemas import (
+from agent.models import (
     AgentRequest, AgentResponse, AlphaComputeRequest, AlphaEvaluateRequest,
     BacktestRequest, BacktestResult, MarketDataRequest,
 )

@@ -10,7 +10,7 @@ from .registry import Skill, SkillRegistry, get_skill_registry
 
 logger = logging.getLogger(__name__)
 
-_SKILLS_DIR = Path(__file__).parent / "skills"
+_SKILLS_DIR = Path(__file__).parent
 
 
 def _parse_markdown_skill(md_path: Path) -> Skill | None:

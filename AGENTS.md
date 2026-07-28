@@ -179,6 +179,7 @@ type: feat / fix / docs / refactor / test / style / chore
 
 ```
 main.py                 # FastAPI 入口
+conftest.py             # pytest 全局 fixtures
 config.yaml             # 配置（git ignored）
 config.yaml.example     # 配置模板
 AGENTS.md               # ← 本文档（opencode 自动加载）
@@ -186,13 +187,26 @@ agent/
   config.py             # 配置加载
   core.py               # ReAct Agent 循环
   llm_client.py         # LLM 客户端（DeepSeek/OpenAI/Qwen/Gemini）
-  memory.py             # SQLite 记忆
-  tools/                # 工具集（@tool 装饰器注册）
+  memory.py             # SQLite + FTS5 记忆（公共API）
+  models.py             # Pydantic 数据模型
+  scheduler.py          # 交易周期自动调度
+  tools/                # 40+ 工具（@tool 装饰器注册）
     registry.py         # 工具注册中心
-  strategies/           # 策略定义
-api/routes.py           # FastAPI 路由
-models/schemas.py       # Pydantic 模型
+    cache.py            # TTL 内存缓存层
+  strategies/           # 28 策略（6 类别）
+  alpha/                # 264 + 8 因子库
+  skills/               # 13 技能（Markdown 定义）
+  multi_agent/          # 8 Agent 协作框架
+  broker/               # 券商连接（Alpaca/IBKR/Paper）
+  data/                 # 数据源框架
+  notify/               # Telegram/Webhook 通知
+  ws/                   # WebSocket 实时行情
+api/routes.py           # FastAPI 路由（单Agent + Market + Backtest + Broker）
+api/multi_agent_routes.py  # 多 Agent 路由
+tests/                  # 300+ 测试
 docs/                   # 设计文档与教程
+scripts/                # 工具脚本
+web/                    # Vue 3 前端
 ```
 
 ## 八、技术栈

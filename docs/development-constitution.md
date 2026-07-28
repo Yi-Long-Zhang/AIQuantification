@@ -320,6 +320,7 @@ async def test_tool_execution():
 
 ```
 main.py                      # FastAPI 入口
+conftest.py                  # pytest 全局 fixtures
 config.yaml                  # 配置（git ignored）
 config.yaml.example          # 配置模板
 AGENTS.md                    # 精要版宪法（opencode 自动加载）
@@ -329,8 +330,13 @@ agent/
   config.py                  # 配置加载
   core.py                    # ReAct Agent 循环
   llm_client.py              # LLM 客户端（DeepSeek/OpenAI/Qwen/Gemini）
-  memory.py                  # SQLite + FTS5 全文搜索记忆
-  tools/                     # 35 个量化工具（@tool 装饰器注册）
+  memory.py                  # SQLite + FTS5 全文搜索记忆（公共API）
+  memory_async.py            # AsyncAgentMemory（aiosqlite）
+  memory_sync.py             # AgentMemory（stdlib sqlite3）
+  memory_sql.py              # SQL 常量 + 辅助函数
+  models.py                  # Pydantic 数据模型
+  scheduler.py               # 交易周期自动调度
+  tools/                     # 40+ 量化工具（@tool 装饰器注册）
     registry.py              # 工具注册中心
     market_data.py           # 美股/A股数据工具
     hk_stock.py              # 港股专用工具
@@ -341,40 +347,61 @@ agent/
     news.py                  # 新闻和情绪分析
     alpha.py                 # Alpha 因子工具
     constitution.py          # 智能体宪法检查
-  strategies/                # 8 个交易策略
+    cache.py                 # TTL 内存缓存层
+  strategies/                # 28 个交易策略（6 类别）
     base.py                  # 策略基类（ABC）
     registry.py              # 策略注册中心
-  alpha/                     # 251 个 Alpha 因子库
-    alpha101.py              # Alpha101（101 个）
-    alpha158.py              # Alpha158（150 个）
+    trend_strategies.py      # 趋势类（12）
+    mean_reversion_strategies.py  # 均值回归类（6）
+    specialized_strategies.py     # 反转/事件/组合（5）
+    ml_strategies.py         # ML 策略（2）
+    evaluator.py             # 策略评估/对比/因子归因
+  alpha/                     # 264 + 8 Alpha 因子库
+    alpha101.py              # Alpha101（101）
+    alpha158.py              # Alpha158（150）
+    alpha191.py              # Alpha191（13）
+    technical_factors.py     # K线形态因子（8）
     evaluator.py             # 因子评估器（IC/IR/换手率）
-  skills/                    # 技能系统
+  skills/                    # 13 个技能（Markdown 定义）
     registry.py              # 技能注册中心
     loader.py                # 技能自动加载
   multi_agent/               # 多 Agent 协作框架
     base.py                  # BaseAgent 基类
     communication.py         # Agent 间通信
-    coordinator.py           # DAG 协调引擎
+    coordinator.py           # 协调器（注册/委派/状态）
+    trading_cycle.py         # 交易周期编排
+    decision_synthesizer.py  # LLM 合成/信号过滤
     research/                # 5 个 Research Agent
       data_miner.py          # 数据挖掘
       market_analyst.py      # 市场分析
       technical_analyst.py   # 技术分析
       fundamental_analyst.py # 基本面分析
       news_analyst.py        # 新闻分析
+  broker/                    # 券商连接
+    base.py                  # BrokerBase + 数据类型
+    registry.py              # 券商注册中心
+    paper.py                 # PaperBroker 模拟交易
+    paper_risk.py            # PaperBroker 风控 mixin
+    alpaca.py                # Alpaca 券商连接
+    ibkr.py                  # IBKR 券商连接
+    shadow.py                # Shadow Account（CSV导入）
+    tools.py                 # 券商工具导入
+  data/                      # 数据源框架
+  notify/                    # Telegram + Webhook 通知
+  ws/                        # WebSocket 实时行情推送
 api/
   routes.py                  # FastAPI 路由（单 Agent）
   multi_agent_routes.py      # 多 Agent 路由
-models/schemas.py            # Pydantic 模型
 web/                         # Vue 3 + TypeScript 前端
   src/
-    views/                   # 页面组件（Chat/Dashboard/Backtest/Strategies/AgentMonitor）
+    views/                   # 页面组件（Chat/Dashboard/Backtest/Strategies/AgentMonitor/PaperTrading/Broker）
     components/              # 通用组件（ChatMessage/KlineChart/MarketCard/BacktestResult 等）
     stores/                  # Pinia 状态管理
     api/                     # Axios API 封装
     router/                  # Vue Router 路由
     types/                   # TypeScript 类型定义
-    utils/                   # 工具函数（SSE 流式通信等）
-tests/                       # 22 个测试文件，113 个测试用例
+    utils/                   # 工具函数（SSE/WebSocket 等）
+tests/                       # 300+ 测试
 docs/                        # 设计文档与教程
 scripts/                     # 工具脚本（验证/测试/审计）
 ```

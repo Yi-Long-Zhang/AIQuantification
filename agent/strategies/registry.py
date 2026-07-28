@@ -27,6 +27,9 @@ from .specialized_strategies import (
     CryptoFundingStrategy, EarningsMomentumStrategy,
     CarryTradeStrategy, SectorRotationStrategy, CalendarEffectStrategy,
 )
+from .ml_strategies import (
+    LightGBMStrategy, EnsembleStrategy,
+)
 
 
 _STRATEGIES: dict[str, type[Strategy]] = {
@@ -48,6 +51,7 @@ _STRATEGIES: dict[str, type[Strategy]] = {
     "volatility_mean_reversion": VolatilityMeanReversionStrategy,
     "carry_trade": CarryTradeStrategy, "sector_rotation": SectorRotationStrategy,
     "calendar_effect": CalendarEffectStrategy,
+    "lightgbm": LightGBMStrategy, "ensemble": EnsembleStrategy,
 }
 
 

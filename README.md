@@ -63,10 +63,45 @@ npm run dev
 
 | 地址 | 说明 |
 |------|------|
-| http://localhost:5173 | 前端 |
+| http://localhost:5173 | 前端（开发模式） |
 | http://localhost:8000 | 后端 API |
 | http://localhost:8000/docs | Swagger API 文档 |
 | http://localhost:5173/paper | 模拟交易看板 |
+
+---
+
+### Docker 部署
+
+```bash
+# 1. 配置
+cp config.yaml.example config.yaml
+# 编辑 config.yaml，填入 LLM API Key
+
+# 2. 构建并启动
+docker compose up -d
+
+# 3. 访问
+#    前端: http://localhost:8080
+#    API:  http://localhost:8000
+
+# 4. 查看日志
+docker compose logs -f
+
+# 5. 停止
+docker compose down
+
+# 数据持久化在 ./data/
+#   memory.db        — SQLite 记忆库
+#   paper_state.json — PaperBroker 快照（重启自动恢复）
+```
+
+### 访问地址
+
+| 地址 | 说明 |
+|------|------|
+| http://localhost:8080 | 前端（Docker 模式，nginx 反向代理） |
+| http://localhost:8000 | 后端 API |
+| http://localhost:8000/docs | Swagger API 文档 |
 
 ---
 
@@ -78,6 +113,12 @@ AIQuantification/
 ├── conftest.py             pytest fixtures
 ├── config.yaml(.example)   配置
 ├── pyproject.toml          构建配置
+├── docker-compose.yml      Docker 编排
+├── docker/                 Docker 构建文件
+│   ├── Dockerfile.backend  Python FastAPI
+│   ├── Dockerfile.frontend Nginx 静态文件
+│   └── nginx.conf          反向代理配置
+├── agent/                  主包
 ├── agent/                  主包
 │   ├── core.py             ReAct Agent 循环
 │   ├── llm_client.py       LLM 客户端（4 家提供商 + 退避重试）
@@ -101,6 +142,9 @@ AIQuantification/
 ├── tests/                  300+ 测试
 ├── docs/                   技术文档
 ├── scripts/                工具脚本
+├── data/                   持久化数据
+│   ├── memory.db           SQLite
+│   └── paper_state.json    PaperBroker 快照
 └── web/                    Vue 3 + TypeScript 前端
 ```
 

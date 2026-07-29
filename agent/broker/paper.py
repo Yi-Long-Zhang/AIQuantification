@@ -7,6 +7,7 @@ tracks positions, P&L, and trade history. No real money involved.
 
 from __future__ import annotations
 
+import json
 import logging
 import uuid
 from dataclasses import dataclass, field
@@ -106,6 +107,9 @@ class PaperBroker(PaperRiskMixin, BrokerBase):
         self._equity_history: list[dict[str, float]] = []
         self._last_equity_record: float = 0.0
 
+        # Snapshot path for Docker persistence (set externally)
+        self._snapshot_path: str | None = None
+
         # For limit order book simulation
         self._open_orders: list[Order] = []
         self._connected = True  # Always connected
@@ -134,6 +138,7 @@ class PaperBroker(PaperRiskMixin, BrokerBase):
         if old_price is not None and old_price != price:
             self._check_limit_orders(symbol)
         self.record_equity_snapshot()
+        self._auto_save()
 
     def update_prices(self, prices: dict[str, float]) -> None:
         """Batch update multiple prices and record equity snapshot."""
@@ -142,10 +147,23 @@ class PaperBroker(PaperRiskMixin, BrokerBase):
         for symbol in prices:
             self._check_limit_orders(symbol)
         self.record_equity_snapshot()
+        self._auto_save()
 
     def get_price(self, symbol: str) -> float | None:
         """Get current price for a symbol."""
         return self._prices.get(symbol)
+
+    def set_snapshot_path(self, path: str) -> None:
+        """Set path for automatic state persistence."""
+        self._snapshot_path = path
+
+    def _auto_save(self) -> None:
+        """Save snapshot if path is configured."""
+        if self._snapshot_path:
+            try:
+                self.save_snapshot(self._snapshot_path)
+            except Exception as e:
+                logger.warning("Auto-save snapshot failed: %s", e)
 
     # ── Equity history ───────────────────────────────────────────────────
 
@@ -451,6 +469,87 @@ class PaperBroker(PaperRiskMixin, BrokerBase):
             "open_orders": len(self._open_orders),
             "total_trades": len(self._trades),
         }
+
+    # ── Snapshot persistence ─────────────────────────────────────────────
+
+    SNAPSHOT_VERSION = 1
+
+    def save_snapshot(self, path: str) -> None:
+        """Save PaperBroker state to a JSON file for Docker persistence."""
+        # Rebuild Position list from internal state
+        pos_list = []
+        for sym, pos in self._positions.items():
+            price = self._prices.get(sym, pos.avg_entry_price)
+            pos_list.append(Position(
+                symbol=sym, qty=pos.qty,
+                avg_entry_price=pos.avg_entry_price,
+                current_price=price,
+                market_value=pos.market_value(price),
+                unrealized_pl=pos.unrealized_pnl(price),
+                unrealized_pl_pct=pos.unrealized_pnl(price) / (pos.qty * pos.avg_entry_price)
+                if pos.qty and pos.avg_entry_price else 0.0,
+                asset_class="paper",
+            ))
+
+        snapshot = {
+            "version": self.SNAPSHOT_VERSION,
+            "initial_capital": self._initial_capital,
+            "cash": self._cash,
+            "positions": [p.to_dict() for p in pos_list],
+            "orders": [o.to_dict() for o in self._orders],
+            "trades": [t.to_dict() for t in self._trades],
+            "prices": dict(self._prices),
+            "equity_history": self._equity_history,
+            "commission_pct": self._commission_pct,
+            "slippage_pct": self._slippage_pct,
+        }
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(snapshot, f, indent=2, default=str)
+        logger.info("PaperBroker snapshot saved to %s (%d trades)", path, len(self._trades))
+
+    def load_snapshot(self, path: str) -> bool:
+        """Restore PaperBroker state from a JSON snapshot. Returns True on success."""
+        try:
+            with open(path, encoding="utf-8") as f:
+                snap = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError) as e:
+            logger.info("No snapshot found at %s (%s), starting fresh", path, e)
+            return False
+
+        self._initial_capital = snap.get("initial_capital", self._initial_capital)
+        self._cash = snap.get("cash", self._cash)
+        self._commission_pct = snap.get("commission_pct", self._commission_pct)
+        self._slippage_pct = snap.get("slippage_pct", self._slippage_pct)
+        self._prices = {k: float(v) for k, v in snap.get("prices", {}).items()}
+        self._equity_history = snap.get("equity_history", [])
+
+        # Restore orders
+        from datetime import datetime as dt
+        self._orders = []
+        for o in snap.get("orders", []):
+            self._orders.append(Order(**o))
+
+        # Restore trades
+        self._trades = []
+        for t in snap.get("trades", []):
+            self._trades.append(Trade(**t))
+
+        # Restore positions
+        self._positions = {}
+        for p in snap.get("positions", []):
+            pos = _PositionState(
+                symbol=p["symbol"],
+                qty=p["qty"],
+                avg_entry_price=p["avg_entry_price"],
+                realized_pnl=p.get("realized_pl", 0),
+            )
+            self._positions[p["symbol"]] = pos
+
+        logger.info(
+            "PaperBroker snapshot loaded: %s positions, %d trades, $%.0f cash",
+            len(self._positions), len(self._trades), self._cash,
+        )
+        return True
 
     def to_dict(self) -> dict[str, Any]:
         return {

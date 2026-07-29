@@ -16,7 +16,7 @@ from agent.scheduler import start_scheduler
 
 limiter = Limiter(key_func=get_remote_address)
 
-app = FastAPI(title="AIQuantification", version="0.1.0")
+app = FastAPI(title="AIQuantification", version="3.1.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -74,7 +74,7 @@ async def ws_market(websocket, market: str):
 async def root(request: Request):
     return {
         "name": "AIQuantification",
-        "version": "0.1.0",
+        "version": "3.1.0",
         "description": "AI-powered quantitative trading agent",
         "config": {
             "llm_provider": settings.llm_provider,

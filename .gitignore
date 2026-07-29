@@ -60,6 +60,10 @@ tool_execution_*.json
 # Reasonix local metadata
 .reasonix/
 
+# Deployment
+data/
+.env
+
 # Node (for web/)
 node_modules/
 dist/

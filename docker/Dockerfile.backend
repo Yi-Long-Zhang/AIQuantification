@@ -1,0 +1,28 @@
+FROM python:3.13-slim
+
+WORKDIR /app
+
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+
+# Copy dependency files first for caching
+COPY pyproject.toml uv.lock ./
+
+# Install dependencies (no dev deps for production)
+RUN uv sync --no-dev --frozen 2>/dev/null || uv sync --frozen
+
+# Copy application code
+COPY . .
+
+# Create data directory for persistent storage
+RUN mkdir -p /data
+
+# Default snapshot path (overridable via env)
+ENV PAPER_SNAPSHOT_PATH=/data/paper_state.json
+ENV MEMORY_DB_PATH=/data/memory.db
+
+# Expose API port
+EXPOSE 8000
+
+# Start server
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

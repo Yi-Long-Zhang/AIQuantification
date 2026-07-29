@@ -1,0 +1,26 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persistent data: SQLite + PaperBroker snapshot
+      - ./data:/data
+      # Config (read-only in container)
+      - ./config.yaml:/app/config.yaml:ro
+    environment:
+      - PAPER_SNAPSHOT_PATH=/data/paper_state.json
+      - MEMORY_DB_PATH=/data/memory.db
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

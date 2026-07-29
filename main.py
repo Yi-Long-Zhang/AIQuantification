@@ -1,4 +1,5 @@
 import logging
+import os
 import uuid
 
 from fastapi import FastAPI, Request, WebSocket
@@ -34,8 +35,20 @@ app.include_router(multi_agent_router)
 @app.on_event("startup")
 async def startup():
     """Start background services on app launch."""
+    from pathlib import Path
+    from agent.broker.registry import get_broker_registry
+
+    # Load PaperBroker snapshot if available
+    snap_path = os.environ.get("PAPER_SNAPSHOT_PATH", "")
+    if snap_path:
+        Path(snap_path).parent.mkdir(parents=True, exist_ok=True)
+        paper = get_broker_registry().get("paper")
+        if paper and hasattr(paper, "set_snapshot_path"):
+            paper.set_snapshot_path(snap_path)
+            paper.load_snapshot(snap_path)
+
     start_scheduler()
-    logger.info("Startup complete: scheduler running")
+    logging.getLogger().info("Startup complete: scheduler running, snapshot=%s", snap_path or "none")
 
 
 @app.websocket("/ws/market/{market}")

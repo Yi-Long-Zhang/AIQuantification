@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Node
+node_modules/
+web/node_modules/
+
+# Build artifacts
+web/dist/
+
+# Data
+data/
+
+# IDE
+.idea/
+.vscode/
+
+# Git
+.git/
+
+# Docker
+.dockerignore
+
+# Local config
+config.yaml
+.env

@@ -120,16 +120,25 @@ except Exception as e:
 提交流程（严格按此顺序）：
 1. 检查当前分支 → 如果在 main 上，先 git checkout -b feature/<名称>
 2. 在 feature 分支上开发和自动提交（git add + git commit）
-3. 开发完成后切回 main → git merge --no-ff <分支名>
-4. 保留分支，不删除
+3. 功能代码完成后，在同分支上更新相关文档和测试
+4. 验证通过后切回 main → git merge --no-ff <分支名>
+5. 保留分支，不删除
+6. 升版本号：pyproject.toml 中 patch 或 minor 递增
+7. git tag v<版本>
 ```
 
 - `main`：稳定分支，只通过 `git merge --no-ff` 进入，**禁止直接提交**
-- 所有分支统一使用 `feature/` 前缀，禁止使用 `fix/`、`docs/` 等其他前缀
-- 分支名必须包含序号：`feature/phase<序号>-<描述>`（如 `feature/phase14-performance`）
-- 序号接续现有最大序号递增，禁止重复
-- 禁止以"改动太小"为由跳过分支流程
-- 合并前优先使用 `git merge`（保留分支历史），避免 squash 丢失上下文
+- 分支名：`feature/<语义化描述>`，用英文短横线连接（如 `feature/restructure`、`feature/deployment-docker`）
+- 禁止使用 `fix/`、`docs/`、`phase<N>` 等前缀
+- 最小规模：每个分支至少包含一个完整交付（功能代码 + 对应测试 + 对应文档更新）
+- 禁止纯文档分支：文档更新必须属于某个功能分支
+- 版本号管理：
+  - 每次 merge 后升 `pyproject.toml` 中的版本号
+  - bug fix：patch 递增（v3.0.3 → v3.0.4）
+  - 新功能：minor 递增（v3.0.x → v3.1.0）
+  - break API：major 递增（v3.x.y → v4.0.0）
+  - 升号后执行 `git tag v<版本>`
+- 禁止以"改动太小"为由跳过以上规则
 
 ### 5.2 提交格式
 

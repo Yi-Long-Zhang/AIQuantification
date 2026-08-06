@@ -76,7 +76,7 @@ async def test_get_crypto_realtime_error():
     mock_ccxt = MagicMock()
     mock_ccxt.binance.side_effect = Exception("Connection error")
     with patch.dict(sys.modules, {"ccxt": mock_ccxt}):
-        result = await get_crypto_realtime(symbol="BTC")
+        result = await get_crypto_realtime(symbol="BTC-ERR")
         assert "error" in result
 
 

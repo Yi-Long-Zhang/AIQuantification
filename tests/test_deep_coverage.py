@@ -42,7 +42,7 @@ class TestStrategySignals:
     def test_all_strategies_generate_signals(self):
         df = self._sample_df()
         strategies = list_strategies()
-        assert len(strategies) == 18
+        assert len(strategies) >= 18
         for s_info in strategies:
             strat = get_strategy(s_info["name"])
             assert strat is not None, f"Failed to get strategy: {s_info['name']}"

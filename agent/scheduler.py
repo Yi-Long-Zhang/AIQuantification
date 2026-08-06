@@ -81,7 +81,7 @@ class TradingScheduler:
             self._coordinator = CoordinatorAgent(llm_client=llm, broker=broker)
         return self._coordinator
 
-    def start(self) -> None:
+    async def start(self) -> None:
         """Start all scheduled market tasks."""
         if self._running:
             logger.warning("Scheduler already running")
@@ -174,7 +174,7 @@ def get_scheduler() -> TradingScheduler:
     return _scheduler
 
 
-def start_scheduler() -> None:
+async def start_scheduler() -> None:
     """Convenience: get or create and start the scheduler."""
     sched = get_scheduler()
-    sched.start()
+    await sched.start()

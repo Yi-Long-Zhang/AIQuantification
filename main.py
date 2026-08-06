@@ -47,7 +47,7 @@ async def startup():
             paper.set_snapshot_path(snap_path)
             paper.load_snapshot(snap_path)
 
-    start_scheduler()
+    await start_scheduler()
     logging.getLogger().info("Startup complete: scheduler running, snapshot=%s", snap_path or "none")
 
 

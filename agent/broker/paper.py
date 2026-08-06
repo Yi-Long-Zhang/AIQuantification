@@ -30,11 +30,9 @@ class _PositionState:
     avg_entry_price: float = 0.0
     realized_pnl: float = 0.0
 
-    @property
     def market_value(self, current_price: float) -> float:
         return self.qty * current_price
 
-    @property
     def unrealized_pnl(self, current_price: float) -> float:
         return self.qty * (current_price - self.avg_entry_price)
 

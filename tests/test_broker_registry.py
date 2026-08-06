@@ -28,6 +28,17 @@ class _MockBroker(BrokerBase):
     async def get_orders(self, status=None):
         return []
 
+    async def submit_order(self, symbol, side, qty, order_type="market", price=None):
+        from datetime import datetime
+        from agent.broker.base import Order
+        return Order(order_id="mock-1", symbol=symbol, side=side, qty=qty,
+                     filled_qty=0.0, price=price, avg_fill_price=None,
+                     status="new", type=order_type,
+                     created_at=datetime.now().isoformat())
+
+    async def cancel_order(self, order_id):
+        return True
+
 
 @pytest.fixture
 def registry():

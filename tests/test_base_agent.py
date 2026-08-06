@@ -2,6 +2,8 @@
 Unit tests for BaseAgent class
 """
 
+from unittest.mock import AsyncMock
+
 import pytest
 import asyncio
 from datetime import datetime
@@ -38,8 +40,12 @@ class TestAgent(BaseAgent):
 
 @pytest.fixture
 def llm_client():
-    """Create LLM client for testing"""
-    return LLMClient(provider=settings.llm_provider)
+    """Create LLM client for testing with a mocked chat response."""
+    client = LLMClient(provider=settings.llm_provider)
+    client.chat = AsyncMock(return_value={
+        "choices": [{"message": {"content": '{"answer": 4, "explanation": "2+2=4"}'}}]
+    })
+    return client
 
 
 @pytest.fixture

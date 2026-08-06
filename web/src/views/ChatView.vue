@@ -56,6 +56,7 @@
 
 <script setup lang="ts">
 import { ref, nextTick } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useChatStore } from '@/stores/chat'
 import { agentAPI } from '@/api/agent'
 import ChatMessage from '@/components/ChatMessage.vue'
@@ -63,7 +64,8 @@ import { Delete, ChatDotRound, Loading, Promotion } from '@element-plus/icons-vu
 import { ElMessageBox } from 'element-plus'
 
 const chatStore = useChatStore()
-const { messages, isLoading, addMessage, updateLastMessage } = chatStore
+const { messages, isLoading } = storeToRefs(chatStore)
+const { addMessage, updateLastMessage } = chatStore
 
 const inputText = ref('')
 const messagesRef = ref<HTMLElement>()

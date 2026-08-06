@@ -108,7 +108,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type { BacktestResult } from '@/types'
 import { TrendCharts, DataAnalysis, Bottom, Trophy } from '@element-plus/icons-vue'
 import { createChart, ColorType, type IChartApi, type ISeriesApi, type LineData } from 'lightweight-charts'
@@ -134,7 +134,7 @@ function drawEquity() {
     height: 300,
   })
   equityLine = equityChart.addLineSeries({ color: '#58a6ff', lineWidth: 2 })
-  const data: LineData[] = props.equityData[0].map((v, i) => ({ time: i, value: v }))
+  const data: LineData[] = props.equityData[0].map((v, i) => ({ time: i as LineData['time'], value: v }))
   equityLine.setData(data)
   equityChart.timeScale().fitContent()
 }

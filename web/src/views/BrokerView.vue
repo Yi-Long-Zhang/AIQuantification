@@ -28,8 +28,8 @@
                 <el-descriptions-item label="购买力">${{ statuses[broker.name].account?.buying_power?.toLocaleString() || '-' }}</el-descriptions-item>
               </el-descriptions>
 
-              <div v-if="statuses[broker.name].positions?.length" class="positions-section">
-                <h3 class="section-title">持仓 ({{ statuses[broker.name].positions.length }})</h3>
+              <div v-if="statuses[broker.name]?.positions?.length" class="positions-section">
+                <h3 class="section-title">持仓 ({{ statuses[broker.name]?.positions?.length ?? 0 }})</h3>
                 <el-table :data="statuses[broker.name].positions" size="small" stripe>
                   <el-table-column prop="symbol" label="代码" width="80" />
                   <el-table-column prop="qty" label="数量" width="80" />
@@ -101,7 +101,7 @@ const loadStatus = async (name: string) => {
     const res = await brokerAPI.getBrokerStatus(name)
     statuses[name] = res
   } catch {
-    statuses[name] = { connected: false }
+    statuses[name] = { name, connected: false }
   }
 }
 

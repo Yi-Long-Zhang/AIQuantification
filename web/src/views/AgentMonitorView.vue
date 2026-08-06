@@ -194,13 +194,13 @@ import {
   Refresh, VideoPlay, UserFilled, ChatLineRound
 } from '@element-plus/icons-vue'
 import api from '@/api'
-import type { MultiAgentStatus, AgentMessage, CycleResult } from '@/types'
+import type { MultiAgentStatus, AgentMessage, CycleResult, BrokerStats, ExecutionSummary } from '@/types'
 
 // ── State ──────────────────────────────────────────────
 const loading      = ref(false)
 const cycleRunning = ref(false)
 const status       = ref<MultiAgentStatus>({} as MultiAgentStatus)
-const brokerStats  = ref<Record<string, unknown>>()
+const brokerStats  = ref<BrokerStats>({} as BrokerStats)
 const messages     = ref<AgentMessage[]>([])
 const selectedAgent = ref<string | null>(null)
 const lastCycleResult = ref<CycleResult | null>(null)
@@ -208,18 +208,18 @@ let pollTimer: number | null = null
 
 // ── Computed ───────────────────────────────────────────
 const systemOnline = computed(() => !!status.value.coordinator)
-const executionSummary = computed(
-  () => status.value.execution_summary ?? {}
-)
+const executionSummary = computed<ExecutionSummary>(() => status.value.execution_summary ?? {
+  agent: '', total_tasks: 0, successful: 0, failed: 0, success_rate: 0,
+})
 
 // ── API calls ──────────────────────────────────────────
 const refreshStatus = async () => {
   loading.value = true
   try {
     const [statusRes, statsRes, msgsRes] = await Promise.all([
-      api.get('/multi-agent/status'),
-      api.get('/multi-agent/broker/stats'),
-      api.get('/multi-agent/messages', {
+      api.get<never, MultiAgentStatus>('/multi-agent/status'),
+      api.get<never, BrokerStats>('/multi-agent/broker/stats'),
+      api.get<never, { messages: AgentMessage[] }>('/multi-agent/messages', {
         params: { agent: selectedAgent.value || undefined, limit: 50 }
       })
     ])
@@ -236,7 +236,7 @@ const refreshStatus = async () => {
 const runCycle = async () => {
   cycleRunning.value = true
   try {
-    const res = await api.post('/multi-agent/cycle', { market: 'us_stock' })
+    const res = await api.post<never, CycleResult>('/multi-agent/cycle', { market: 'us_stock' })
     lastCycleResult.value = res
     ElMessage.success('交易周期完成')
     await refreshStatus()

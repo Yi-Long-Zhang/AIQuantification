@@ -164,26 +164,71 @@ export interface Thought {
 /** 多 Agent 状态 */
 export interface MultiAgentStatus {
   coordinator: string
-  agents: Record<string, string>
-  execution_summary?: Record<string, unknown>
-  cycle_count?: number
-  last_cycle_time?: string
+  registered_agents?: string[]
+  broker_stats?: BrokerStats
+  execution_summary?: ExecutionSummary
 }
 
-/** 多 Agent 消息 */
+/** Broker 消息统计 */
+export interface BrokerStats {
+  registered_agents: number
+  agents: string[]
+  total_messages: number
+  messages_by_type: Record<string, number>
+  messages_by_agent: Record<string, number>
+  queue_sizes: Record<string, number>
+}
+
+/** Agent 执行统计 */
+export interface ExecutionSummary {
+  agent: string
+  total_tasks: number
+  successful: number
+  failed: number
+  success_rate: number
+}
+
+/** 多 Agent 消息（后端 to_dict 字段） */
 export interface AgentMessage {
-  id: string
-  from: string
-  to: string
-  type: string
-  content: string
+  message_id: string
+  from_agent: string
+  to_agent: string
+  message_type: string
+  content: unknown
+  priority: string
+  correlation_id?: string | null
   timestamp: string
 }
 
 /** 交易周期结果 */
 export interface CycleResult {
+  cycle_id: string
+  market: string
   status: string
-  decisions?: Record<string, unknown>
-  summary?: string
-  errors?: string[]
+  elapsed_seconds: number
+  research: unknown
+  strategy: unknown
+  risk: unknown
+  final_decision: {
+    decisions?: Decision[]
+    market_view?: string
+    overall_confidence?: number
+    risk_approved?: boolean
+    action?: string
+    reasoning?: string
+  }
+  execution?: Record<string, unknown>
+  timestamp: string
+  error?: string
+}
+
+/** AI 交易决策 */
+export interface Decision {
+  symbol: string
+  action: string
+  confidence: number
+  entry_price?: number
+  stop_loss?: number
+  take_profit?: number
+  reasoning?: string
 }

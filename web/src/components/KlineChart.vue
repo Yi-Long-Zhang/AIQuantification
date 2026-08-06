@@ -50,7 +50,7 @@ onUnmounted(() => chart?.remove())
 watch(() => props.livePrice, (newPrice) => {
   if (newPrice && candleSeries) {
     try {
-      candleSeries.update({ close: newPrice })
+      candleSeries.update({ close: newPrice } as CandlestickData)
     } catch { /* ignore if time not in series */ }
   }
 })
@@ -141,40 +141,44 @@ const buildChart = (
     priceScaleId: 'right',
   })
   candleSeries.setData(candles)
-  candleSeries.priceScale().applyOptions({ scaleMargins: hasSub ? { top: 0.1, bottom: 0.4 } : { top: 0.1, bottom: 0.2 } })
+  candleSeries.priceScale().applyOptions({
+    scaleMargins: hasSub ? { top: 0.06, bottom: 0.5 } : { top: 0.06, bottom: 0.25 }
+  })
 
   // SMA20 overlay
   smaSeries = chart.addLineSeries({ color: '#58a6ff', lineWidth: 1, priceScaleId: 'right' })
   smaSeries.setData(smaData)
 
-  // Volume
+  // Volume (stacked above the indicator bands, always at the bottom)
   volumeSeries = chart.addHistogramSeries({ priceFormat: { type: 'volume' }, priceScaleId: 'volume' })
   volumeSeries.setData(volumes)
-  chart.priceScale('volume').applyOptions({ scaleMargins: { top: hasSub ? 0.85 : 0.75, bottom: 0 } })
+  chart.priceScale('volume').applyOptions({ scaleMargins: { top: 0.86, bottom: 0.04 } })
 
-  // MACD sub-chart
+  // MACD sub-chart (stacked band via price scale, v4 has no panes)
   if (showMACD.value) {
-    const macdPane = chart.addPane({ height: subHeight })
-    macdHistogram = chart.addHistogramSeries({
-      priceScaleId: 'macd', pane: macdPane,
-    })
+    macdHistogram = chart.addHistogramSeries({ priceScaleId: 'macd' })
     macdHistogram.setData(macdData.map(d => ({
       time: d.time,
       value: d.bar,
       color: d.bar >= 0 ? 'rgba(63,185,80,0.5)' : 'rgba(218,54,51,0.5)',
     })))
-    macdLineSeries = chart.addLineSeries({ color: '#d2a943', lineWidth: 1, priceScaleId: 'macd', pane: macdPane })
+    macdLineSeries = chart.addLineSeries({ color: '#d2a943', lineWidth: 1, priceScaleId: 'macd' })
     macdLineSeries.setData(macdData.map(d => ({ time: d.time, value: d.dif })))
-    macdSignalSeries = chart.addLineSeries({ color: '#58a6ff', lineWidth: 1, priceScaleId: 'macd', pane: macdPane })
+    macdSignalSeries = chart.addLineSeries({ color: '#58a6ff', lineWidth: 1, priceScaleId: 'macd' })
     macdSignalSeries.setData(macdData.map(d => ({ time: d.time, value: d.dea })))
+    chart.priceScale('macd').applyOptions({
+      scaleMargins: showRSI.value ? { top: 0.52, bottom: 0.64 } : { top: 0.52, bottom: 0.82 }
+    })
   }
 
-  // RSI sub-chart
+  // RSI sub-chart (stacked band)
   if (showRSI.value) {
-    const rsiPane = chart.addPane({ height: subHeight })
-    rsiSeries = chart.addLineSeries({ color: '#bc8cff', lineWidth: 1, priceScaleId: 'rsi', pane: rsiPane })
+    rsiSeries = chart.addLineSeries({ color: '#bc8cff', lineWidth: 1, priceScaleId: 'rsi' })
     rsiSeries.setData(rsiData)
-    rsiSeries.priceScale().applyOptions({ autoScale: false, min: 0, max: 100 })
+    chart.priceScale('rsi').applyOptions({
+      scaleMargins: showMACD.value ? { top: 0.66, bottom: 0.78 } : { top: 0.52, bottom: 0.82 },
+      autoScale: false,
+    })
     // Draw 30/70 reference lines
     rsiSeries.createPriceLine({ price: 70, color: '#da3633', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '70' })
     rsiSeries.createPriceLine({ price: 30, color: '#3fb950', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: '30' })

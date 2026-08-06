@@ -66,7 +66,7 @@ NewsAnalyst                                          Final Decision
 async def my_tool(param: str) -> dict: ...
 ```
 
-### 工具列表（40+ 个）
+### 工具列表（38 个）
 
 | 分类 | 工具 | 用途 |
 |------|------|------|
@@ -74,7 +74,7 @@ async def my_tool(param: str) -> dict: ...
 | 港股 | `get_hk_klines`, `get_hk_realtime`, `get_hk_index`, `get_hk_flow`, `get_hk_fund_flow`, `get_hk_valuation` | 港股数据 |
 | 加密货币 | `get_crypto_klines`, `get_crypto_realtime`, `get_crypto_orderbook`, `get_crypto_overview`, `get_crypto_fear_greed`, `get_crypto_top_coins`, `get_crypto_funding_rate`, `get_crypto_open_interest`, `calculate_crypto_indicators` | 区块链数据 |
 | 技术分析 | `calculate_indicators`, `calculate_factor` | 指标计算 |
-| Alpha | `compute_alpha_factors`, `evaluate_alpha_factors`, `list_alpha_factors` | 251 因子 |
+| Alpha | `compute_alpha_factors`, `evaluate_alpha_factors`, `list_alpha_factors` | 264 + 8 因子 |
 | 回测 | `run_backtest`, `compare_strategies`, `monte_carlo_test`, `walk_forward_test`, `trade_attribution` | 策略评估 |
 | 风险 | `calculate_position_size`, `assess_portfolio_risk` | 风控 |
 | 新闻 | `get_stock_news`, `analyze_sentiment` | 市场情绪 |
@@ -85,14 +85,14 @@ async def my_tool(param: str) -> dict: ...
 
 `agent/skills/skills/` 使用 Markdown + YAML frontmatter 定义可复用分析工作流。每个技能指定：名称、描述、工具列表、工具参数、标签、执行逻辑 prompt。
 
-## 因子库（251 个）
+## 因子库（264 + 8 个）
 
-`agent/alpha/` — Alpha158(150) + Alpha101(101)。评估指标：IC、IR、换手率、存活率。
+`agent/alpha/` — Alpha101(101) + Alpha158(150) + Alpha191(13) + K线形态(8)。评估指标：IC、IR、换手率、存活率。
 
 ## 记忆系统
 
 SQLite + FTS5 全文搜索，支持跨会话记忆、交易记录、知识库。
 
-## 策略系统（18 个）
+## 策略系统（28 个）
 
-所有策略继承 `Strategy` ABC，分类：趋势(7)、反转(3)、均值回归(4)、事件驱动(2)、组合(1)。每个策略定义：名称、类型、标签、适用市场、参数、风险等级。
+所有策略继承 `Strategy` ABC，分类：趋势(12)、均值回归(6)、反转(2)、事件驱动(4)、组合(2)、ML(2)。每个策略定义：名称、类型、标签、适用市场、参数、风险等级。

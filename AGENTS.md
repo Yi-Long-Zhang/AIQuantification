@@ -200,7 +200,7 @@ agent/
   memory.py             # SQLite + FTS5 记忆（公共API）
   models.py             # Pydantic 数据模型
   scheduler.py          # 交易周期自动调度
-  tools/                # 40+ 工具（@tool 装饰器注册）
+  tools/                # 38 工具（@tool 装饰器注册）
     registry.py         # 工具注册中心
     cache.py            # TTL 内存缓存层
   strategies/           # 28 策略（6 类别）

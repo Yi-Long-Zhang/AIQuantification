@@ -12,7 +12,7 @@
 
 ### 核心能力
 
-- **40+ 量化工具** — 多市场数据、技术指标、Alpha 因子、回测、风控、券商连接
+- **38 量化工具** — 多市场数据、技术指标、Alpha 因子、回测、风控、券商连接
 - **28 个交易策略** — 趋势/反转/均值回归/事件驱动/组合/ML 六大类别
 - **264 + 8 Alpha 因子** — Alpha101 + Alpha158 + Alpha191 + K线形态因子
 - **8 个 AI Agent** — 5 Research + Backtester + PortfolioOptimizer + RiskManager
@@ -125,7 +125,7 @@ AIQuantification/
 │   ├── memory.py           SQLite + FTS5 记忆（公共 API）
 │   ├── models.py           Pydantic 数据模型
 │   ├── scheduler.py        交易周期自动调度
-│   ├── tools/              40+ 量化工具
+│   ├── tools/              38 量化工具
 │   │   ├── cache.py        TTL 内存缓存层
 │   │   └── ...
 │   ├── strategies/         28 个交易策略（6 类别）
@@ -189,7 +189,7 @@ AIQuantification/
 | 指标 | 数值 |
 |------|------|
 | Python 文件 | 74 |
-| 量化工具 | 40+ |
+| 量化工具 | 38 |
 | 交易策略 | 28（6 类别） |
 | Alpha 因子 | 264 + 8 |
 | AI Agent | 8 |

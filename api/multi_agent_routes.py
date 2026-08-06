@@ -26,9 +26,11 @@ _coordinator: CoordinatorAgent | None = None
 def get_coordinator() -> CoordinatorAgent:
     global _broker, _coordinator
     if _coordinator is None:
+        from agent.multi_agent.agent_factory import register_default_agents
         _broker = MessageBroker()
         llm = LLMClient(provider=settings.llm_provider)
         _coordinator = CoordinatorAgent(llm_client=llm, broker=_broker)
+        register_default_agents(_coordinator, llm)
     return _coordinator
 
 
@@ -37,6 +39,7 @@ def get_coordinator() -> CoordinatorAgent:
 class RunCycleRequest(BaseModel):
     market: str = "us_stock"
     context: dict = {}
+    execute: bool = False   # if True, submit orders to PaperBroker
 
 
 class RegisterAgentRequest(BaseModel):
@@ -65,7 +68,8 @@ async def run_cycle(request: Request, req: RunCycleRequest):
     coordinator = get_coordinator()
     result = await coordinator.run_trading_cycle(
         market=req.market,
-        context=req.context
+        context=req.context,
+        execute=req.execute,
     )
     return result
 

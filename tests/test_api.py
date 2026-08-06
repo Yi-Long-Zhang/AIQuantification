@@ -344,3 +344,44 @@ class TestRootEndpoints:
         assert response.status_code == 200
         assert "text/html" in response.headers["content-type"]
         assert "AIQuantification" in response.text
+
+
+# ─── Execution endpoints ─────────────────────────────────────────────────────
+
+class TestExecutionEndpoints:
+    def test_execution_dry_run_plans(self, client):
+        """POST /execution/dry-run — 演练合格决策，返回 planned"""
+        response = client.post("/execution/dry-run", json={
+            "market": "us_stock",
+            "decisions": [{"symbol": "AAPL", "action": "BUY", "confidence": 0.9}],
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert data["dry_run"] is True
+        assert data["decisions_seen"] == 1
+        assert data["orders_filled"] == 0
+        assert data["items"][0]["status"] in ("planned", "rejected")
+
+    def test_execution_dry_run_low_confidence(self, client):
+        """POST /execution/dry-run — 低置信度决策被拒绝"""
+        response = client.post("/execution/dry-run", json={
+            "market": "us_stock",
+            "decisions": [{"symbol": "AAPL", "action": "BUY", "confidence": 0.2}],
+        })
+        assert response.status_code == 200
+        data = response.json()
+        assert data["orders_rejected"] == 1
+        assert data["orders_filled"] == 0
+        assert "below threshold" in data["items"][0]["reason"]
+
+    def test_execution_dry_run_empty(self, client):
+        """POST /execution/dry-run — 空决策列表返回空报告"""
+        response = client.post("/execution/dry-run", json={"market": "us_stock", "decisions": []})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["decisions_seen"] == 0
+
+    def test_paper_order_missing_fields(self, client):
+        """POST /broker/paper/order — 缺少字段返回 422"""
+        response = client.post("/broker/paper/order", json={"symbol": "AAPL"})
+        assert response.status_code == 422

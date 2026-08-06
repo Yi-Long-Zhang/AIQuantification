@@ -46,6 +46,49 @@ export interface PaperEquityResponse {
   count: number
 }
 
+export interface DryRunDecision {
+  symbol: string
+  action: string
+  confidence: number
+  entry_price?: number
+}
+
+export interface DryRunItem {
+  status: string
+  reason?: string | null
+  symbol: string
+  action?: string
+  confidence?: number
+  price?: number
+  qty?: number
+  notional?: number
+  order_id?: string
+  order_status?: string
+}
+
+export interface DryRunResponse {
+  dry_run: boolean
+  timestamp: string
+  decisions_seen: number
+  orders_planned: number
+  orders_filled: number
+  orders_rejected: number
+  items: DryRunItem[]
+}
+
+export interface PaperOrderResult {
+  order_id: string
+  symbol: string
+  side: string
+  qty: number
+  filled_qty: number
+  price: number | null
+  avg_fill_price: number | null
+  status: string
+  type: string
+  created_at: string
+}
+
 export const brokerAPI = {
   /** 获取券商列表 */
   listBrokers: () =>
@@ -74,4 +117,12 @@ export const brokerAPI = {
   /** PaperBroker 权益历史 */
   getPaperEquity: (limit: number = 500) =>
     api.get<never, PaperEquityResponse>('/broker/paper/equity', { params: { limit } }),
+
+  /** 执行演练：预览决策会产生的订单 */
+  dryRun: (market: string, decisions: DryRunDecision[]) =>
+    api.post<never, DryRunResponse>('/execution/dry-run', { market, decisions }),
+
+  /** PaperBroker 手动下单 */
+  submitOrder: (data: { symbol: string; side: string; qty: number; order_type?: string; price?: number | null }) =>
+    api.post<never, PaperOrderResult>('/broker/paper/order', data),
 }

@@ -213,12 +213,18 @@ class TradingCycleMixin:
     async def run_trading_cycle(
         self,
         market: str = "us_stock",
-        context: dict | None = None
+        context: dict | None = None,
+        execute: bool = False,
     ) -> dict:
         """
         Run a complete trading cycle end-to-end.
 
-        Flow: Research → Strategy → Risk → Final Decision
+        Flow: Research → Strategy → Risk → Final Decision → Execution
+
+        Args:
+            market: Target market identifier.
+            context: Optional context dict.
+            execute: If True, submit orders to the broker (dry-run otherwise).
 
         Returns complete cycle results with final decisions.
         """
@@ -235,6 +241,7 @@ class TradingCycleMixin:
             strategy = await self.run_strategy_phase(research, context)
             risk = await self.run_risk_phase(strategy, context)
             final_decision = await self._synthesize_decision(research, strategy, risk)
+            execution = await self._execute_decisions(final_decision, market, execute)
 
             elapsed = (datetime.now() - start_time).total_seconds()
 
@@ -247,6 +254,7 @@ class TradingCycleMixin:
                 "strategy": strategy,
                 "risk": risk,
                 "final_decision": final_decision,
+                "execution": execution,
                 "timestamp": datetime.now().isoformat()
             }
 
@@ -261,3 +269,26 @@ class TradingCycleMixin:
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
             }
+
+    async def _execute_decisions(
+        self,
+        final_decision: dict,
+        market: str,
+        execute: bool,
+    ) -> dict:
+        """Route final decisions through the order executor."""
+        decisions = final_decision.get("decisions", [])
+        if not decisions:
+            return {"dry_run": not execute, "decisions_seen": 0, "orders_planned": 0, "items": []}
+
+        from agent.broker.registry import get_broker_registry
+        from agent.execution import OrderExecutor
+
+        broker = get_broker_registry().get("paper")
+        if broker is None:
+            return {"dry_run": not execute, "decisions_seen": len(decisions),
+                    "orders_planned": 0, "items": [], "error": "PaperBroker not available"}
+
+        executor = OrderExecutor(broker=broker, dry_run=not execute, market=market)
+        report = await executor.execute_decisions(decisions)
+        return report.to_dict()

@@ -73,12 +73,15 @@ class TradingScheduler:
     # ── Lifecycle ─────────────────────────────────────────────────────────
 
     def get_coordinator(self) -> CoordinatorAgent:
-        """Lazy-init coordinator singleton."""
+        """Lazy-init coordinator singleton with registered agents."""
         if self._coordinator is None:
             from agent.config import settings
+            from agent.multi_agent.agent_factory import register_default_agents
             broker = MessageBroker()
             llm = LLMClient(provider=self._llm_provider or settings.llm_provider)
-            self._coordinator = CoordinatorAgent(llm_client=llm, broker=broker)
+            coordinator = CoordinatorAgent(llm_client=llm, broker=broker)
+            register_default_agents(coordinator, llm)
+            self._coordinator = coordinator
         return self._coordinator
 
     async def start(self) -> None:

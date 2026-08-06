@@ -55,6 +55,7 @@ POST /multi-agent/cycle          → 触发完整交易周期 {"market":"us_stoc
 GET  /multi-agent/agents         → Agent 列表
 GET  /multi-agent/messages       → 消息历史
 GET  /multi-agent/broker/stats   → Broker 统计
+POST /multi-agent/cycle          → 支持 {"market":"us_stock","execute":true} 真实下单（默认 dry-run）
 ```
 
 ## 券商连接
@@ -72,6 +73,8 @@ POST /broker/import-trades       → CSV 交易导入
 GET  /broker/paper/summary  → 组合摘要（权益/收益率/仓位）
 GET  /broker/paper/trades   → 交易历史
 GET  /broker/paper/equity   → 权益曲线历史
+POST /broker/paper/order    → 手动下单 {"symbol":"AAPL","side":"buy","qty":10}
+POST /execution/dry-run     → 执行演练 {"market":"us_stock","decisions":[{...}]}
 ```
 
 ## 基础

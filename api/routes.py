@@ -3,6 +3,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -147,6 +148,49 @@ async def import_trades(request: Request, csv_content: str = ""):
     from agent.broker.tools import import_trades_csv
     result = await import_trades_csv(csv_content)
     return result
+
+
+class DryRunRequest(BaseModel):
+    """Request body for the execution dry-run preview."""
+    market: str = "us_stock"
+    decisions: list[dict] = Field(default_factory=list)
+
+
+class OrderRequest(BaseModel):
+    """Request body for manual paper order submission."""
+    symbol: str
+    side: str  # buy / sell
+    qty: float
+    order_type: str = "market"
+    price: float | None = None
+
+
+@router.post("/execution/dry-run")
+@limiter.limit("20/minute")
+async def execution_dry_run(request: Request, req: DryRunRequest):
+    """Preview which decisions would become orders, without submitting."""
+    from agent.execution import OrderExecutor
+
+    broker = get_broker_registry().get("paper")
+    if broker is None:
+        raise HTTPException(status_code=404, detail="PaperBroker not available")
+    executor = OrderExecutor(broker=broker, dry_run=True, market=req.market)
+    report = await executor.execute_decisions(req.decisions)
+    return report.to_dict()
+
+
+@router.post("/broker/paper/order")
+@limiter.limit("10/minute")
+async def paper_order(request: Request, req: OrderRequest):
+    """Submit a real order to PaperBroker."""
+    broker = get_broker_registry().get("paper")
+    if broker is None:
+        raise HTTPException(status_code=404, detail="PaperBroker not available")
+    order = await broker.submit_order(
+        symbol=req.symbol, side=req.side, qty=req.qty,
+        order_type=req.order_type, price=req.price,
+    )
+    return order.to_dict()
 
 
 @router.get("/broker/paper/summary")

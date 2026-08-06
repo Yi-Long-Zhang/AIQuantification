@@ -102,12 +102,52 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 执行记录 -->
+    <el-card shadow="hover" class="chart-card">
+      <template #header>
+        <div class="exec-header">
+          <span>执行记录</span>
+          <el-button size="small" @click="runDryRun" :loading="dryRunning">演练最近信号</el-button>
+        </div>
+      </template>
+      <el-table :data="executionItems" size="small" stripe v-if="executionItems.length" empty-text="暂无执行记录（点击演练最近信号或等待调度器产出）">
+        <el-table-column prop="symbol" label="代码" width="90" />
+        <el-table-column prop="action" label="动作" width="80">
+          <template #default="{ row }">
+            <el-tag :type="row.action === 'BUY' ? 'success' : row.action === 'SELL' ? 'danger' : 'info'" size="small">
+              {{ row.action }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="90">
+          <template #default="{ row }">
+            <el-tag :type="row.status === 'filled' ? 'success' : row.status === 'planned' ? 'warning' : 'danger'" size="small">
+              {{ row.status }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="confidence" label="置信度" width="90">
+          <template #default="{ row }">{{ row.confidence?.toFixed(2) ?? '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="price" label="价格" width="90">
+          <template #default="{ row }">{{ row.price != null ? '$' + row.price.toFixed(2) : '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="qty" label="数量" width="80">
+          <template #default="{ row }">{{ row.qty ?? '-' }}</template>
+        </el-table-column>
+        <el-table-column prop="reason" label="说明" min-width="200">
+          <template #default="{ row }">{{ row.reason || row.order_id || row.order_status || '-' }}</template>
+        </el-table-column>
+      </el-table>
+    </el-card>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { brokerAPI, type PaperSummary, type PaperTrade } from '@/api/broker'
+import { ElMessage } from 'element-plus'
+import { brokerAPI, type PaperSummary, type PaperTrade, type DryRunItem } from '@/api/broker'
 import { createChart, ColorType, type IChartApi, type ISeriesApi, type LineData } from 'lightweight-charts'
 
 // ── State ──
@@ -119,6 +159,8 @@ const summary = ref<PaperSummary>({
 const recentTrades = ref<PaperTrade[]>([])
 const equityData = ref<{ time: string; equity: number }[]>([])
 const equityChartRef = ref<HTMLElement | null>(null)
+const executionItems = ref<DryRunItem[]>([])
+const dryRunning = ref(false)
 let chart: IChartApi | null = null
 let equityLine: ISeriesApi<'Line'> | null = null
 let pollTimer: number | null = null
@@ -137,6 +179,28 @@ const loadData = async () => {
     updateChart()
   } catch (err) {
     console.error('Failed to load paper data:', err)
+  }
+}
+
+// ── Execution dry-run ──
+const runDryRun = async () => {
+  dryRunning.value = true
+  try {
+    // Preview from current positions: evaluate exit signals on existing positions
+    const decisions = summary.value.positions
+      .filter(p => p.qty > 0)
+      .slice(0, 10)
+      .map(p => ({ symbol: p.symbol, action: p.unrealized_pnl >= 0 ? 'SELL' : 'HOLD', confidence: 0.5 }))
+    const resp = await brokerAPI.dryRun('us_stock', decisions)
+    executionItems.value = resp.items
+    if (resp.orders_planned + resp.orders_filled === 0) {
+      ElMessage.info('演练完成：无满足条件的信号')
+    }
+  } catch (err) {
+    console.error('Dry-run failed:', err)
+    ElMessage.error('演练失败，请查看控制台')
+  } finally {
+    dryRunning.value = false
   }
 }
 
@@ -192,4 +256,5 @@ onUnmounted(() => {
 .equity-chart { height: 280px; }
 .chart-empty { text-align: center; color: #8b949e; padding: 60px 0; }
 .chart-card :deep(.el-card__body) { padding: 0; }
+.exec-header { display: flex; justify-content: space-between; align-items: center; }
 </style>

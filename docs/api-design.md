@@ -17,7 +17,7 @@ POST /agent/chat/stream
 ## Agent 能力
 
 ```
-GET /agent/tools    → {"tools": [...], "count": 40+}
+GET /agent/tools    → {"tools": [...], "count": 38}
 GET /strategies     → {"strategies": [{name, description, type, tags, markets, params, risk_level}, ...]}
 GET /skills         → {"skills": [...], "count": 13}
 GET /alpha/factors  → {"alpha158": [...], "alpha101": [...]}

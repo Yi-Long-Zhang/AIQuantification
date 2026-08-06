@@ -345,7 +345,7 @@ agent/
   memory_sql.py              # SQL 常量 + 辅助函数
   models.py                  # Pydantic 数据模型
   scheduler.py               # 交易周期自动调度
-  tools/                     # 40+ 量化工具（@tool 装饰器注册）
+  tools/                     # 38 量化工具（@tool 装饰器注册）
     registry.py              # 工具注册中心
     market_data.py           # 美股/A股数据工具
     hk_stock.py              # 港股专用工具

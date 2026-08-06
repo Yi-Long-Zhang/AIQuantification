@@ -16,7 +16,7 @@
 │  agent/memory.py (SQLite + FTS5, WAL)                    │
 │  agent/skills/ (13 个技能)                                │
 ├─────────────────────────────────────────────────────────┤
-│            工具层 (agent/tools/ — 40+ 工具)                │
+│            工具层 (agent/tools/ — 38 工具)                │
 │  market_data · crypto · hk_stock · technical · alpha     │
 │  backtest · risk · news · constitution                  │
 ├─────────────────────────────────────────────────────────┤
@@ -74,9 +74,9 @@ AIQuantification/
 │   ├── core.py                # QuantAgent
 │   ├── llm_client.py          # LLM 客户端
 │   ├── memory.py              # SQLite + FTS5
-│   ├── tools/                 # 40+ @tool
-│   ├── strategies/            # 18 策略
-│   ├── alpha/                 # 251 因子 (Alpha158 + Alpha101)
+│   ├── tools/                 # 38 @tool
+│   ├── strategies/            # 28 策略
+│   ├── alpha/                 # 264 + 8 因子 (Alpha101 + Alpha158 + Alpha191 + 形态)
 │   ├── skills/                # 13 技能
 │   ├── multi_agent/           # 8 Agent
 │   │   ├── research/          # 5 Research Agent

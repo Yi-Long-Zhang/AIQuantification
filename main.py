@@ -1,6 +1,7 @@
 import logging
 import os
 import uuid
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,25 +17,10 @@ from agent.scheduler import start_scheduler
 
 limiter = Limiter(key_func=get_remote_address)
 
-app = FastAPI(title="AIQuantification", version="3.1.0")
-app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE"],
-    allow_headers=["*"],
-)
-
-app.include_router(api_router)
-app.include_router(multi_agent_router)
-
-
-@app.on_event("startup")
-async def startup():
-    """Start background services on app launch."""
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Startup: launch background services. Shutdown: stop them."""
     from pathlib import Path
     from agent.broker.registry import get_broker_registry
 
@@ -49,6 +35,27 @@ async def startup():
 
     await start_scheduler()
     logging.getLogger().info("Startup complete: scheduler running, snapshot=%s", snap_path or "none")
+    yield
+    from agent.scheduler import get_scheduler
+    scheduler = get_scheduler()
+    if scheduler.get_status()["running"]:
+        await scheduler.stop()
+
+
+app = FastAPI(title="AIQuantification", version="3.1.1", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origins,
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
+    allow_headers=["*"],
+)
+
+app.include_router(api_router)
+app.include_router(multi_agent_router)
 
 
 @app.websocket("/ws/market/{market}")
@@ -74,7 +81,7 @@ async def ws_market(websocket, market: str):
 async def root(request: Request):
     return {
         "name": "AIQuantification",
-        "version": "3.1.0",
+        "version": "3.1.1",
         "description": "AI-powered quantitative trading agent",
         "config": {
             "llm_provider": settings.llm_provider,

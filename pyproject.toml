@@ -1,6 +1,6 @@
 [project]
 name = "aiquantification"
-version = "3.1.1"
+version = "3.1.2"
 requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.139.0",

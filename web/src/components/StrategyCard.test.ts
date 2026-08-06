@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import StrategyCard from './StrategyCard.vue'
+import type { Strategy } from '@/types'
 
 describe('StrategyCard', () => {
   const baseProps = {
@@ -18,7 +19,7 @@ describe('StrategyCard', () => {
     }
   }
 
-  function createWrapper(props: Record<string, unknown>) {
+  function createWrapper(props: { strategy: Strategy }) {
     return mount(StrategyCard, {
       props,
       global: {

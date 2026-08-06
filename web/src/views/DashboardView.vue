@@ -71,7 +71,6 @@ import { Refresh } from '@element-plus/icons-vue'
 const activeMarket = ref('us_stock')
 const marketData = ref<MarketQuote[]>([])
 const loading = ref(false)
-const error = ref('')
 const chartSymbol = ref('AAPL')
 const chartKey = ref(0)
 const chartSymbols: Record<string, string[]> = {

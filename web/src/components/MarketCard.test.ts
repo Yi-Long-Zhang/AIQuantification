@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import MarketCard from './MarketCard.vue'
+import type { MarketQuote } from '@/types'
 
 describe('MarketCard', () => {
   const baseProps = {
@@ -18,7 +19,7 @@ describe('MarketCard', () => {
     }
   }
 
-  function createWrapper(props: Record<string, unknown>) {
+  function createWrapper(props: { data: MarketQuote }) {
     return mount(MarketCard, {
       props,
       global: {

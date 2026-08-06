@@ -53,7 +53,7 @@ const router = createRouter({
 })
 
 // 设置页面标题
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   if (to.meta.title) {
     document.title = `${to.meta.title} - AIQuantification`
   }

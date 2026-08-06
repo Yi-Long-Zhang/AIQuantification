@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { backtestAPI } from './backtest'
 import api from './index'
 
-vi.mock('./index', { default: { get: vi.fn(), post: vi.fn() } })
+vi.mock('./index', () => ({ default: { get: vi.fn(), post: vi.fn() } }))
 
 const mockApi = vi.mocked(api)
 

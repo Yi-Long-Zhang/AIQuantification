@@ -28,6 +28,6 @@ describe('API 层拦截器', () => {
   it('响应拦截器已注册（统一错误处理）', () => {
     const interceptors = api.interceptors.response
     expect(interceptors).toBeDefined()
-    expect(interceptors.handlers.length).toBeGreaterThan(0)
+    expect(interceptors.handlers?.length ?? 0).toBeGreaterThan(0)
   })
 })
